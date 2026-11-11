@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hearing Where You Are</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    color-scheme: dark;
+    --void:#090a10;
+    --void2:#0c0e16;
+    --panel:#111422;
+    --panel2:#161a2b;
+    --grid:#232a3f;
+    --line:#2b3350;
+    --ink:#f3ecdd;          /* warm bone (magma top) */
+    --dim:#9aa3bd;
+    --dimmer:#636c89;
+    --ember:#ff8a3d;        /* the signal — magma ember */
+    --ember-hot:#ffd27a;
+    --crimson:#e4453f;
+    --violet:#b5179e;
+    --teal:#3ddc97;         /* the fix — viridis */
+    --teal-dim:#1f7a5a;
+  }
+  *{box-sizing:border-box}
+  html{scroll-padding-top:env(safe-area-inset-top,0px)}
+  html,body{margin:0;background:var(--void);color:var(--ink);
+    font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  body{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+    overflow-x:hidden}
+  body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);
+    z-index:60;background:var(--void)}
+
+  /* ---------- shell ---------- */
+  .stage-wrap{position:relative;max-width:1180px;margin:0 auto;padding:0 clamp(14px,3vw,40px)}
+  header.top{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+    padding:clamp(18px,4vw,34px) 0 10px}
+  .mark{font-family:"Space Grotesk";font-weight:700;letter-spacing:-.02em;
+    font-size:clamp(15px,2.4vw,18px);color:var(--ink)}
+  .mark b{color:var(--ember)}
+  .sub{color:var(--dimmer);font-size:13px;font-family:"IBM Plex Mono";letter-spacing:.01em}
+  .sub::before{content:"// "}
+
+  /* ---------- the console ---------- */
+  .console{position:relative;border:1px solid var(--line);border-radius:14px;
+    background:
+      radial-gradient(140% 90% at 50% -10%, #1a2036 0%, var(--void2) 55%, var(--void) 100%);
+    overflow:hidden;box-shadow:0 30px 80px -40px #000, inset 0 1px 0 #ffffff10}
+  .screen{position:relative;width:100%;aspect-ratio:16/9;min-height:300px}
+  @media(max-width:620px){.screen{aspect-ratio:4/5}}
+  canvas,.svg-scene{position:absolute;inset:0;width:100%;height:100%}
+  .svg-scene{pointer-events:none}
+
+  /* scene layers cross-fade */
+  .layer{position:absolute;inset:0;opacity:0;transition:opacity .7s ease}
+  .layer.on{opacity:1}
+
+  /* narration — its own band below the console, never clipped */
+  .caption{position:relative;min-height:176px;margin-top:16px;padding:2px}
+  @media(max-width:620px){.caption{min-height:214px}}
+  .stage-no{font-family:"IBM Plex Mono";font-size:12px;color:var(--ember);letter-spacing:.14em}
+  .stage-no .slash{color:var(--dimmer)}
+  .headline{font-family:"Space Grotesk";font-weight:600;letter-spacing:-.02em;
+    font-size:clamp(20px,3.6vw,33px);line-height:1.08;margin:.28em 0 .32em;max-width:19ch}
+  .say{font-size:clamp(13.5px,1.7vw,16px);line-height:1.5;color:var(--dim);max-width:46ch;margin:0}
+  .say b{color:var(--ink);font-weight:600}
+  .say .em{color:var(--ember-hot);font-weight:600}
+  .say .tl{color:var(--teal);font-weight:600}
+
+  .narr-slide .stage-no,.narr-slide .headline,.narr-slide .say{
+    opacity:0;transform:translateY(10px);transition:opacity .6s ease,transform .6s ease}
+  .layer.on .narr-slide .stage-no{opacity:1;transform:none;transition-delay:.12s}
+  .layer.on .narr-slide .headline{opacity:1;transform:none;transition-delay:.22s}
+  .layer.on .narr-slide .say{opacity:1;transform:none;transition-delay:.34s}
+
+  /* readout chips */
+  .chips{position:absolute;top:clamp(12px,2.4vw,20px);right:clamp(12px,2.4vw,20px);
+    display:flex;flex-direction:column;gap:7px;align-items:flex-end;font-family:"IBM Plex Mono"}
+  .chip{background:#0c0f1ad9;border:1px solid var(--line);border-radius:7px;
+    padding:5px 9px;font-size:12px;color:var(--dim);
+    display:flex;gap:9px;align-items:center;opacity:0;transform:translateX(8px);
+    transition:opacity .5s ease,transform .5s ease}
+  .chip.show{opacity:1;transform:none}
+  .chip .k{color:var(--dimmer)}
+  .chip .v{color:var(--ember-hot);font-weight:500}
+  .chip.good .v{color:var(--teal)}
+
+  /* ---------- controls ---------- */
+  .controls{display:flex;align-items:center;gap:14px;padding:12px 2px 4px}
+  .pp{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);
+    background:var(--panel2);color:var(--ink);cursor:pointer;flex:0 0 auto;
+    display:grid;place-items:center;transition:border-color .2s,background .2s}
+  .pp:hover{border-color:var(--ember);background:#1c2236}
+  .pp svg{width:16px;height:16px}
+  .pp.mute{width:34px;height:34px}
+  .pp.mute.off{opacity:.5;border-color:#242a3c}
+  .pp.mute svg{width:18px;height:18px}
+  .track{position:relative;flex:1;height:4px;border-radius:4px;background:#1a1f30;cursor:pointer}
+  .track .fill{position:absolute;inset:0 auto 0 0;width:0;border-radius:4px;
+    background:linear-gradient(90deg,var(--crimson),var(--ember),var(--ember-hot))}
+  .seg{position:absolute;top:-6px;bottom:-6px;width:1px;background:#2b3350}
+  .tcount{font-family:"IBM Plex Mono";font-size:12px;color:var(--dimmer);flex:0 0 auto;min-width:44px;text-align:right}
+
+  /* stage rail */
+  .rail{display:flex;gap:6px;flex-wrap:wrap;padding:10px 0 4px}
+  .rail button{all:unset;cursor:pointer;font-family:"IBM Plex Mono";font-size:11.5px;
+    color:var(--dimmer);padding:5px 9px;border:1px solid transparent;border-radius:6px;
+    transition:color .2s,border-color .2s,background .2s}
+  .rail button:hover{color:var(--dim)}
+  .rail button.cur{color:var(--ink);border-color:var(--line);background:var(--panel)}
+  .rail button .n{color:var(--ember);margin-right:6px}
+  .rail button.cur .n{color:var(--ember-hot)}
+
+  footer.foot{max-width:1180px;margin:0 auto;padding:22px clamp(14px,3vw,40px) 60px;
+    color:var(--dimmer);font-size:12.5px;line-height:1.6;border-top:1px solid #161a28;margin-top:22px}
+  footer .pill{display:inline-block;font-family:"IBM Plex Mono";font-size:11px;color:var(--teal);
+    border:1px solid #1d3a30;background:#0d1a15;border-radius:5px;padding:2px 7px;margin-right:8px}
+  a{color:var(--dim)}
+
+  @media (prefers-reduced-motion: reduce){
+    .layer,.chip,.narr-slide *{transition:none!important}
+  }
+</style>
+</head>
+<body>
+
+<div class="stage-wrap">
+  <header class="top">
+    <span class="mark"><b>ACOUSTIC</b> GEOLOCATION</span>
+    <span class="sub">how a sound you can&rsquo;t hear finds the ground it came from</span>
+  </header>
+
+  <div class="console">
+    <div class="screen" id="screen">
+      <canvas id="cv"></canvas>
+      <!-- SVG overlay scenes -->
+      <svg class="svg-scene" id="ov" viewBox="0 0 1000 562" preserveAspectRatio="xMidYMid slice" aria-hidden="true"></svg>
+
+      <div class="chips" id="chips"></div>
+    </div>
+  </div>
+
+  <div class="caption" id="narr"></div>
+
+  <audio id="vo" preload="auto" src="assets/narration.mp3"></audio>
+  <div class="controls">
+    <button class="pp" id="pp" aria-label="Play">
+      <svg id="ppIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+    </button>
+    <div class="track" id="track"><div class="fill" id="fill"></div></div>
+    <div class="tcount" id="tcount">0:00</div>
+    <button class="pp mute" id="mute" aria-label="Mute narration" title="Mute narration">
+      <svg id="muteIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8.5a4 4 0 010 7" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+    </button>
+  </div>
+
+  <div class="rail" id="rail"></div>
+</div>
+
+<footer class="foot">
+  <span class="pill">DEMONSTRATION &amp; EVALUATION</span>
+  Forward-simulation acoustic geolocation &mdash; the audio cousin of FDOA/TDOA emitter location.
+  Replicates the method shown by <a href="https://www.youtube.com/watch?v=UytYrhYLOKI">colsto</a>
+  (<i>&ldquo;I discovered a sound that leaks your exact location&rdquo;</i>); flight data from
+  <a href="https://adsb.lol">adsb.lol</a>. Numbers shown are from a 30&times;30&nbsp;km synthetic
+  range with known ground truth. Built for controlled technical evaluation, not for locating
+  recordings made by others.
+</footer>
+
+<script>
+"use strict";
+/* ============================================================= *
+ *  Hearing Where You Are — animated walkthrough
+ *  One ember Doppler line threads every scene: faint in noise,
+ *  traced, predicted, matched, then it drops the pin.
+ * ============================================================= */
+
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const ov = document.getElementById('ov');
+const screen = document.getElementById('screen');
+let DPR = Math.min(2, window.devicePixelRatio || 1);
+let W = 0, H = 0;
+
+function resize(){
+  const r = screen.getBoundingClientRect();
+  W = r.width; H = r.height;
+  cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resize);
+
+/* ---------- colormaps (approx magma / viridis) ---------- */
+function ramp(stops){
+  return t=>{
+    t = Math.max(0,Math.min(1,t));
+    const n=stops.length-1; const x=t*n; const i=Math.min(n-1,Math.floor(x)); const f=x-i;
+    const a=stops[i], b=stops[i+1];
+    return [a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f, a[2]+(b[2]-a[2])*f];
+  };
+}
+const magma = ramp([[0,0,4],[28,16,68],[79,18,123],[129,37,129],[181,54,122],
+  [229,80,100],[251,135,97],[254,194,135],[252,253,191]]);
+const viridis = ramp([[68,1,84],[72,40,120],[62,74,137],[49,104,142],[38,130,142],
+  [31,158,137],[53,183,121],[109,205,89],[180,222,44],[253,231,37]]);
+function rgb(c){return `rgb(${c[0]|0},${c[1]|0},${c[2]|0})`}
+
+/* ---------- shared doppler math ---------- */
+const C = 343;
+// heard frequency for a straight constant-speed pass, param by time u in [0,1]
+function dopplerLine(u, v, dmin, f0, tc){
+  // along-track position; tc is fraction where CPA occurs
+  const T = 1.0; const x = (u - tc); // normalized time from CPA
+  const alongSpeed = v; const dist = Math.hypot(x*alongSpeed*6, dmin); // rough geom
+  const vr = -(x*alongSpeed*6)/ (dist||1) * alongSpeed * 0.16; // radial closing speed (scaled)
+  return f0 * C/(C - vr);
+}
+
+/* ---------- a reusable procedural spectrogram ---------- *
+ * draws noise + up to two descending doppler ridges, with a
+ * "reveal" that brightens the ridge and can add ridge/fit overlays.
+ */
+function drawSpectrogram(opt){
+  // opt: {x,y,w,h, reveal(0..1), events:[{f0hi,f0lo,tc,bright}], cmap, showRidge, showFit, silence}
+  const {x,y,w,h} = opt;
+  const cmap = opt.cmap||magma;
+  const cols = Math.max(80, Math.floor(w/2.2));
+  const rows = Math.max(50, Math.floor(h/2.2));
+  const cw = w/cols, ch = h/rows;
+  const rv = opt.reveal??1;
+  const seed = opt.seed||1;
+  for(let i=0;i<cols;i++){
+    const tt = i/(cols-1);
+    for(let j=0;j<rows;j++){
+      // frequency axis: top = high freq
+      const fr = 1 - j/(rows-1);          // 0..1 low..high
+      let val = 0.10 + 0.14*pnoise(i*0.21+seed, j*0.33); // background
+      // ridges
+      (opt.events||[]).forEach((e,ei)=>{
+        const f = (e.f0hi + (e.f0lo-e.f0hi)*dopEase(tt,e.tc)); // 0..1 freq of ridge at this time
+        const near = Math.exp(-Math.pow((fr-f)/0.022,2));
+        const onwin = (tt>e.tc-0.34 && tt<e.tc+0.34)?1:0.25;
+        const b = (e.bright??1);
+        val += near*1.18*b*onwin*rv;
+        // faint harmonic
+        const fh = f*0.72; const nh=Math.exp(-Math.pow((fr-fh)/0.02,2));
+        val += nh*0.36*b*onwin*rv;
+      });
+      // silence band illustration: during gap keep only noise
+      const c = cmap(val);
+      const a = 1;
+      ctx.fillStyle = `rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a})`;
+      ctx.fillRect(x+i*cw, y+j*ch, cw+0.6, ch+0.6);
+    }
+  }
+}
+function dopEase(t,tc){ // smooth S descent through CPA
+  const k=(t-(tc-0.34))/0.68; const s=Math.max(0,Math.min(1,k));
+  return s<0.5 ? 2*s*s : 1-Math.pow(-2*s+2,2)/2;
+}
+// cheap value noise
+const _p = new Float32Array(1024);
+for(let i=0;i<1024;i++) _p[i]=Math.random();
+function pnoise(a,b){
+  const i=((Math.floor(a)*57+Math.floor(b)*131)%1024+1024)%1024;
+  const i2=((i+1)%1024);
+  const f=(a+b)-Math.floor(a+b);
+  return _p[i]*(1-f)+_p[i2]*f;
+}
+
+/* ---------- scene registry ---------- */
+// each scene: dur (sec), narr html, chips[], draw(p) where p 0..1 scene progress
+const scenes = [];
+function S(o){scenes.push(o)}
+
+/* visual helpers on SVG overlay */
+function clearOv(){ while(ov.firstChild) ov.removeChild(ov.firstChild); }
+function el(tag,attrs){const e=document.createElementNS('http://www.w3.org/2000/svg',tag);
+  for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}
+
+/* ====== SCENE 0 — the sound you can't hear ====== */
+S({
+  no:"00", tag:"THE HOOK",
+  head:"A sound you can&rsquo;t hear.",
+  say:`A prop plane drifts over a quiet porch. Nobody looks up. But that engine wrote a line into the recording &mdash; a <span class="em">pitch that slides as it passes</span>. In the real case this method cracked, the plane was <b>inaudible</b>, and it still pinned a security camera on Long Island.`,
+  chips:[["source","prop flyover"],["audible?","no"]],
+  dur:9,
+  draw(p){
+    ctx.clearRect(0,0,W,H);
+    paintSky(p);
+    // spectrogram emerges along the bottom third
+    const sh=H*0.38, sy=H-sh;
+    drawSpectrogram({x:0,y:sy,w:W,h:sh,reveal:ease(p,0.18,0.72),
+      events:[{f0hi:0.70,f0lo:0.42,tc:0.52,bright:1.35}],cmap:magma,seed:3});
+    // plane arc
+    planeArc(p);
+    // "you can't hear it" label fades, then ridge glow
+    frameLabel(sy, "SPECTROGRAM", p);
+  }
+});
+
+/* ====== SCENE 1 — the slide is a fingerprint ====== */
+S({
+  no:"01", tag:"WHY IT&rsquo;S A FINGERPRINT",
+  head:"The slide depends on where you stood.",
+  say:`Doppler: closing fast, the pitch rides high; passing, it drops. Someone a mile east heard the <b>same plane</b> make a <span class="em">different slide</span> &mdash; steeper, or later, or shallower. The exact shape of that curve is a signature of one patch of ground.`,
+  chips:[["listener A","steep + early"],["listener B","shallow + late"]],
+  dur:9,
+  draw(p){
+    ctx.clearRect(0,0,W,H); paintField(p);
+    twoListeners(p);
+  }
+});
+
+/* ====== SCENE 2 — forward, not backward ====== */
+S({
+  no:"02", tag:"THE TRICK",
+  head:"You can&rsquo;t run sound back to a path. So run every path forward.",
+  say:`Many flight geometries make near-identical curves, so inverting the sound is hopeless. Instead we take <b>every real flight track</b> from public ADS&#8209;B and ask, for <b>every spot on a grid</b>: what would this plane have sounded like <i>here</i>? Keep the spot whose prediction matches.`,
+  chips:[["approach","forward simulation"],["invert?","never"]],
+  dur:9,
+  draw(p){ ctx.clearRect(0,0,W,H); paintVoid(); forwardIdea(p); }
+});
+
+/* ====== SCENE 3 — guest list + hear table ====== */
+S({
+  no:"03", tag:"THE GUEST LIST",
+  head:"Every flight that day. Every spot. When would you have heard it?",
+  say:`Load the whole day of ADS&#8209;B, drop the jets, keep every light aircraft &mdash; even ones with no type on file. For each grid point and each pass, compute the moment it came closest and <b>when its sound would reach you</b> (sound is slow: a plane 1.25&nbsp;km off is heard ~3.6&nbsp;s late).`,
+  chips:[["flights (day)","loaded"],["hear-table rows","~1.5 M"]],
+  dur:9,
+  draw(p){ ctx.clearRect(0,0,W,H); paintVoid(); hearTable(p); }
+});
+
+/* ====== SCENE 4 — read the curve ====== */
+S({
+  no:"04", tag:"READ THE CURVE",
+  head:"Four numbers fall out of one curve.",
+  say:`Trace the bright ridge, fit an ideal pass. The <b>depth</b> of the drop gives speed; the <b>steepness</b> gives how close it came; the center gives its true note and the moment you heard it. Here the fit nails the real distance to about <span class="em">22&nbsp;m</span>.`,
+  chips:[["speed","96 m/s"],["CPA dist","1,275 m"],["f&#8320;","121.7 Hz"]],
+  dur:10,
+  draw(p){
+    ctx.clearRect(0,0,W,H);
+    const m=Math.min(W,H); const pad=W*0.07;
+    const sx=pad, sy=H*0.14, sw=W-2*pad, sh=H*0.6;
+    drawSpectrogram({x:sx,y:sy,w:sw,h:sh,reveal:1,
+      events:[{f0hi:0.72,f0lo:0.44,tc:0.5,bright:1}],cmap:greyMode()});
+    ridgeAndFit(sx,sy,sw,sh,p);
+    frameLabel(sy, "EVENT 1  —  fundamental", 1, sx+6);
+  }
+});
+
+/* ====== SCENE 5 — the funnel ====== */
+S({
+  no:"05", tag:"THE FUNNEL",
+  head:"22,801 suspects down to 138 &mdash; and silence counts as evidence.",
+  say:`Four cheap yes/no questions, each cheaper than the next. Two prop passes ~920&nbsp;s apart? At these speeds? At these distances? And &mdash; the sharp one &mdash; would this spot have heard <b>nothing else</b> in between? <span class="em">What you don&rsquo;t hear is data.</span>`,
+  chips:[],
+  dur:10,
+  draw(p){ ctx.clearRect(0,0,W,H); paintVoid(); funnel(p); }
+});
+
+/* ====== SCENE 6 — listen to the past ====== */
+S({
+  no:"06", tag:"LISTEN TO THE PAST",
+  head:"The sound reaching you now left the plane seconds ago.",
+  say:`Like starlight: you hear where the plane <b>was</b> when the sound left it, not where it is now. At 1.25&nbsp;km that&rsquo;s about 4&nbsp;s of travel &mdash; and the Cessna moved ~350&nbsp;m in that time. Skip this and the predicted curve is off by up to <span class="em">11&nbsp;Hz</span>.`,
+  chips:[["model","emission-time"],["naive error","up to 11 Hz"]],
+  dur:10,
+  draw(p){ ctx.clearRect(0,0,W,H); paintVoid(); retarded(p); }
+});
+
+/* ====== SCENE 7 — the fix ====== */
+S({
+  no:"07", tag:"THE FIX",
+  head:"Lock the two curves. The map blooms. The pin drops.",
+  say:`Lay each predicted curve on the spectrogram, lock the second plane&rsquo;s timing to the first, and score the brightness underneath. One patch wins. On this run: <span class="tl">0&nbsp;m from truth</span>, the runner-up 7&nbsp;km away. (The faint second lobe is the mirror a single straight pass can&rsquo;t break &mdash; the second plane breaks it.)`,
+  chips:[["top score","13.9"],["error","0 m","good"]],
+  dur:11,
+  draw(p){ ctx.clearRect(0,0,W,H); heatScene(p); }
+});
+
+/* ====== SCENE 8 — same game, different medium ====== */
+S({
+  no:"08", tag:"SAME GAME, DIFFERENT MEDIUM",
+  head:"It&rsquo;s FDOA/TDOA &mdash; in air.",
+  say:`A moving emitter with known ephemeris, a Doppler clue, a timing clue, and a mirror ambiguity you break with geometry. Satellites geolocate a jammer this way. Here the &ldquo;satellites&rdquo; are aircraft and the &ldquo;emitter&rdquo; is the recorder &mdash; same logic, run in reverse.`,
+  chips:[],
+  dur:10,
+  draw(p){ ctx.clearRect(0,0,W,H); paintVoid(); parallel(p); }
+});
+
+/* ===================== painters ===================== */
+function ease(p,a,b){return Math.max(0,Math.min(1,(p-a)/(b-a)))}
+function smooth(t){t=Math.max(0,Math.min(1,t));return t*t*(3-2*t)}
+function greyMode(){return ramp([[8,9,16],[40,44,60],[90,96,120],[150,156,180],[210,214,230],[245,246,250]]);}
+
+function paintSky(p){
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#141a2e');g.addColorStop(.55,'#10141f');g.addColorStop(1,'#0a0c12');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // porch silhouette
+  ctx.fillStyle='#05060a';
+  const hy=H*0.66;
+  ctx.fillRect(0,hy,W,H-hy);
+  ctx.beginPath();ctx.moveTo(0,hy);ctx.lineTo(W*0.18,hy-24);ctx.lineTo(W*0.5,hy-30);ctx.lineTo(W*0.82,hy-20);ctx.lineTo(W,hy);ctx.fill();
+}
+function paintField(p){
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#0e1322');g.addColorStop(1,'#0a0c12');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // subtle grid of ground
+  ctx.strokeStyle='#161c2e';ctx.lineWidth=1;
+  const hy=H*0.58;
+  for(let i=-6;i<=6;i++){ctx.beginPath();ctx.moveTo(W/2+i*40,hy);ctx.lineTo(W/2+i*160,H);ctx.stroke();}
+  for(let j=1;j<=6;j++){const yy=hy+(H-hy)*(j/6)*(j/6);ctx.beginPath();ctx.moveTo(0,yy);ctx.lineTo(W,yy);ctx.stroke();}
+}
+function paintVoid(){
+  const g=ctx.createRadialGradient(W/2,H*0.3,20,W/2,H*0.4,W*0.8);
+  g.addColorStop(0,'#10141f');g.addColorStop(1,'#090a10');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+}
+function frameLabel(sy,txt,p,x){
+  if(p<0.2)return;
+  ctx.save();ctx.globalAlpha=ease(p,0.2,0.5)*0.9;
+  ctx.font='11px "IBM Plex Mono", monospace';ctx.fillStyle='#cdd3e6';
+  ctx.fillText(txt, (x??12), sy+16);
+  ctx.restore();
+}
+
+function planeArc(p){
+  const t=smooth(ease(p,0.05,0.9));
+  const x=W*(0.1+0.8*t), y=H*(0.26+0.08*Math.sin(t*Math.PI));
+  // trail
+  ctx.strokeStyle='rgba(255,138,61,.18)';ctx.lineWidth=2;
+  ctx.beginPath();
+  for(let s=0;s<=t;s+=0.02){const xx=W*(0.1+0.8*s),yy=H*(0.26+0.08*Math.sin(s*Math.PI));
+    if(s===0)ctx.moveTo(xx,yy);else ctx.lineTo(xx,yy);}
+  ctx.stroke();
+  // plane
+  ctx.save();ctx.translate(x,y);ctx.rotate(0.15);
+  ctx.fillStyle='#e7ecf7';
+  ctx.beginPath();ctx.moveTo(-7,0);ctx.lineTo(7,0);ctx.lineTo(3,-2);ctx.lineTo(-3,-2);ctx.closePath();
+  ctx.fillRect(-1,-5,2,10);ctx.fill();ctx.restore();
+  // faint sound rings
+  for(let k=0;k<3;k++){const rr=(t*220+k*40)%240;ctx.strokeStyle=`rgba(255,180,120,${0.14*(1-rr/240)})`;
+    ctx.beginPath();ctx.arc(W*0.1+0.8*W*Math.max(0,t-0.12),y,rr,0,7);ctx.stroke();}
+}
+
+function twoListeners(p){
+  const hy=H*0.58;
+  const plane={x:W*(0.12+0.76*smooth(ease(p,0,0.95))),y:H*0.2};
+  const A={x:W*0.34,y:hy+40}, B={x:W*0.68,y:hy+70};
+  // tracks line of sight
+  [[A,'#ff8a3d'],[B,'#3ddc97']].forEach(([L,c])=>{
+    ctx.strokeStyle=c+'';ctx.globalAlpha=0.5;ctx.lineWidth=1.4;
+    ctx.beginPath();ctx.moveTo(plane.x,plane.y);ctx.lineTo(L.x,L.y);ctx.stroke();ctx.globalAlpha=1;
+    // listener dot
+    ctx.fillStyle=c;ctx.beginPath();ctx.arc(L.x,L.y,5,0,7);ctx.fill();
+  });
+  // plane
+  ctx.fillStyle='#e7ecf7';ctx.save();ctx.translate(plane.x,plane.y);
+  ctx.fillRect(-7,-1,14,2);ctx.fillRect(-1,-5,2,10);ctx.restore();
+  // two mini doppler slides
+  miniSlide(W*0.30,H*0.70,W*0.14,H*0.14,'#ff8a3d',0.6,p,0.0);
+  miniSlide(W*0.60,H*0.76,W*0.14,H*0.12,'#3ddc97',0.25,p,0.15);
+}
+function miniSlide(x,y,w,h,c,steep,p,delay){
+  ctx.save();ctx.strokeStyle='#2b3350';ctx.lineWidth=1;
+  ctx.strokeRect(x,y,w,h);
+  const t=ease(p,0.2+delay,0.9+delay);
+  ctx.strokeStyle=c;ctx.lineWidth=2;ctx.beginPath();
+  for(let i=0;i<=t*40;i++){const u=i/40;
+    const f=0.2+0.6*(1-smoothStepSteep(u,steep));
+    const xx=x+u*w, yy=y+h-(f*h);
+    if(i===0)ctx.moveTo(xx,yy);else ctx.lineTo(xx,yy);}
+  ctx.stroke();ctx.restore();
+}
+function smoothStepSteep(u,steep){const k=(u-0.5)/ (0.5*steep); const s=1/(1+Math.exp(-k*6));return s;}
+
+function forwardIdea(p){
+  // left: tangled "invert?" with X ; right: grid of candidate spots lit one by one
+  const t=ease(p,0,1);
+  // arrow idea
+  const gx=W*0.52,gy=H*0.18,gw=W*0.4,gh=H*0.56,n=7;
+  // draw candidate grid
+  for(let i=0;i<n;i++)for(let j=0;j<n;j++){
+    const cx=gx+gw*(i/(n-1)), cy=gy+gh*(j/(n-1));
+    const idx=(i*n+j)/(n*n);
+    const lit=ease(t,idx*0.7,idx*0.7+0.18);
+    ctx.fillStyle=lit>0?`rgba(255,138,61,${0.15+0.7*lit})`:'#1a2033';
+    ctx.beginPath();ctx.arc(cx,cy,2.3+2.4*lit,0,7);ctx.fill();
+  }
+  // the winner
+  const wx=gx+gw*0.58,wy=gy+gh*0.42;
+  if(t>0.85){ctx.strokeStyle='#3ddc97';ctx.lineWidth=2;ctx.beginPath();ctx.arc(wx,wy,9,0,7);ctx.stroke();}
+  // left: the sound → path with a slash
+  ctx.save();ctx.translate(W*0.1,H*0.3);
+  drawMiniSpec(0,0,W*0.26,H*0.22);
+  ctx.font='12px "IBM Plex Mono"';ctx.fillStyle='#9aa3bd';
+  ctx.fillText('sound  ✕→  path', 2, H*0.22+22);
+  ctx.strokeStyle='#e4453f';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(60,H*0.22+13);ctx.lineTo(80,H*0.22+27);ctx.moveTo(80,H*0.22+13);ctx.lineTo(60,H*0.22+27);ctx.stroke();
+  ctx.restore();
+  // arrow across
+  ctx.strokeStyle='#636c89';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(W*0.4,H*0.42);ctx.lineTo(W*0.5,H*0.42);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(W*0.5,H*0.42);ctx.lineTo(W*0.485,H*0.405);ctx.lineTo(W*0.485,H*0.435);ctx.closePath();ctx.fillStyle='#636c89';ctx.fill();
+}
+function drawMiniSpec(x,y,w,h){
+  drawSpectrogram({x,y,w,h,reveal:1,events:[{f0hi:0.7,f0lo:0.45,tc:0.5,bright:0.9}],cmap:magma,seed:7});
+}
+
+function hearTable(p){
+  // left: flight tracks sweeping; right: a growing table of rows
+  const t=ease(p,0,1);
+  const cx=W*0.3,cy=H*0.42;
+  // a few flight tracks
+  const tracks=[[-1,0.2,'#ff8a3d'],[0.4,-0.6,'#ffd27a'],[-0.5,-0.9,'#b5179e'],[0.9,0.5,'#8aa0ff']];
+  tracks.forEach((tr,k)=>{
+    const prog=ease(t,k*0.12,k*0.12+0.5);
+    ctx.strokeStyle=tr[2];ctx.globalAlpha=0.65;ctx.lineWidth=1.6;
+    ctx.beginPath();
+    const x0=cx+tr[0]*W*0.22, y0=cy+tr[1]*H*0.3;
+    for(let s=0;s<=prog;s+=0.02){const xx=x0+s*W*0.26*(tr[0]>0?-1:1),yy=y0+s*H*0.16*(tr[1]>0?-1:1);
+      if(s===0)ctx.moveTo(xx,yy);else ctx.lineTo(xx,yy);}
+    ctx.stroke();ctx.globalAlpha=1;
+  });
+  // observer grid point
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(cx,cy,3,0,7);ctx.fill();
+  ctx.strokeStyle='#3ddc97';ctx.globalAlpha=0.5;
+  for(let r=20;r<140;r+=28){ctx.beginPath();ctx.arc(cx,cy,r*ease(t,0.1,0.8),0,7);ctx.stroke();}
+  ctx.globalAlpha=1;
+  // table
+  const tx=W*0.6,ty=H*0.2,rowH=Math.min(26,H*0.07),rows=5;
+  ctx.font='11px "IBM Plex Mono"';
+  const data=[['pt','flight','t_heard','dist'],
+    ['●','N7342K','14:22:08','1.2 km'],
+    ['●','N551RP','14:37:29','2.4 km'],
+    ['●','—','—','—'],
+    ['●','N88QX','14:51:02','3.1 km']];
+  for(let r=0;r<rows;r++){
+    const show=ease(t,0.2+r*0.13,0.4+r*0.13);
+    if(show<=0)continue;
+    ctx.globalAlpha=show;
+    ctx.fillStyle=r===0?'#636c89':'#cdd3e6';
+    data[r].forEach((d,ci)=>{ctx.fillText(d, tx+ci*W*0.095, ty+r*rowH);});
+    ctx.globalAlpha=1;
+  }
+  ctx.strokeStyle='#232a3f';ctx.strokeRect(tx-10,ty-16,W*0.33,rowH*rows+6);
+}
+
+function ridgeAndFit(sx,sy,sw,sh,p){
+  // ridge dots (orange) appear, then blue fit line sweeps
+  const ev={f0hi:0.72,f0lo:0.44,tc:0.5};
+  const rp=ease(p,0.1,0.55), fp=ease(p,0.5,0.95);
+  // ridge dots
+  ctx.fillStyle='#ff8a3d';
+  for(let i=0;i<=rp*60;i++){const u=i/60;
+    const f=ev.f0hi+(ev.f0lo-ev.f0hi)*dopEase(u,ev.tc);
+    const jitter=(pnoise(i*3,7)-0.5)*0.02;
+    const x=sx+u*sw, y=sy+(1-(f+jitter))*sh;
+    if(u>ev.tc-0.33&&u<ev.tc+0.33){ctx.beginPath();ctx.arc(x,y,1.7,0,7);ctx.fill();}
+  }
+  // blue fit
+  ctx.strokeStyle='#5aa9ff';ctx.lineWidth=2;ctx.beginPath();let started=false;
+  for(let u=ev.tc-0.33;u<=ev.tc-0.33+0.66*fp;u+=0.01){
+    const f=ev.f0hi+(ev.f0lo-ev.f0hi)*dopEase(u,ev.tc);
+    const x=sx+u*sw,y=sy+(1-f)*sh;
+    if(!started){ctx.moveTo(x,y);started=true}else ctx.lineTo(x,y);}
+  ctx.stroke();
+  // legend
+  if(fp>0.3){ctx.font='11px "IBM Plex Mono"';
+    ctx.fillStyle='#ff8a3d';ctx.fillText('• ridge', sx+sw-150, sy+16);
+    ctx.fillStyle='#5aa9ff';ctx.fillText('— fit', sx+sw-70, sy+16);}
+}
+
+function funnel(p){
+  const steps=[['grid points','22,801',1.0],
+    ['F1  time offset','16,970',0.744],
+    ['F2  + speed','4,502',0.197],
+    ['F3  + CPA distance','273',0.012],
+    ['F4  + silence','138',0.006]];
+  const bx=W*0.12, bw=W*0.5, by=H*0.16, bh=H*0.62, rowH=bh/steps.length;
+  steps.forEach((s,i)=>{
+    const show=ease(p,i*0.16,i*0.16+0.3);
+    if(show<=0)return;
+    const wmax=Math.max(0.02,s[2]);
+    // log-ish width so tiny bars still read
+    const w=bw*(0.14+0.86*Math.sqrt(wmax))*show;
+    const y=by+i*rowH;
+    const c=magma(0.35+i*0.13);
+    ctx.fillStyle=rgb(c);ctx.globalAlpha=0.9*show;
+    roundRect(bx,y,w,rowH*0.62,5);ctx.fill();ctx.globalAlpha=1;
+    ctx.font='12px "IBM Plex Mono"';ctx.fillStyle='#cdd3e6';
+    ctx.fillText(s[0], bx+8, y+rowH*0.4);
+    ctx.fillStyle='#ffd27a';ctx.textAlign='left';
+    ctx.fillText(s[1], bx+bw+16, y+rowH*0.4);
+    // silence callout
+    if(i===4&&show>0.6){ctx.fillStyle='#3ddc97';ctx.font='12px Inter';
+      ctx.fillText('↑ what you don\u2019t hear is data', bx+bw+90, y+rowH*0.4);}
+  });
+  // flight pairs tag
+  if(p>0.9){ctx.fillStyle='#9aa3bd';ctx.font='12px "IBM Plex Mono"';
+    ctx.fillText('→ 3 flight pairs survive', bx, by+bh+6);}
+}
+function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+function retarded(p){
+  // two curves diverging: correct vs naive, + a plane with "sound left here" ghost
+  const bx=W*0.14,by=H*0.2,bw=W*0.72,bh=H*0.5;
+  ctx.strokeStyle='#232a3f';ctx.lineWidth=1;ctx.strokeRect(bx,by,bw,bh);
+  // axes label
+  ctx.font='11px "IBM Plex Mono"';ctx.fillStyle='#636c89';
+  ctx.fillText('frequency', bx-4, by-8); ctx.fillText('recording time →', bx+bw-120, by+bh+18);
+  const t=ease(p,0.15,1);
+  // correct (teal) and naive (ember dashed)
+  function curve(col,dash,phase,amp){
+    ctx.strokeStyle=col;ctx.lineWidth=2.4;ctx.setLineDash(dash?[6,5]:[]);
+    ctx.beginPath();
+    for(let u=0;u<=t;u+=0.01){
+      const base=0.74-0.5*dopEase(u,0.48);
+      const off=amp*Math.sin((u-0.3)*3.0)*Math.exp(-Math.pow((u-0.5)/0.3,2));
+      const f=base+ (phase? off: 0);
+      const x=bx+u*bw,y=by+(1-f)*bh;
+      if(u===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}
+    ctx.stroke();ctx.setLineDash([]);
+  }
+  curve('#3ddc97',false,true,0.0);       // correct
+  curve('#ff8a3d',true,true,0.085);      // naive, diverges
+  // divergence marker
+  if(t>0.6){const u=0.38,x=bx+u*bw;
+    ctx.strokeStyle='#e4453f';ctx.setLineDash([2,3]);ctx.beginPath();
+    ctx.moveTo(x,by+bh*0.2);ctx.lineTo(x,by+bh*0.55);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='#e4453f';ctx.font='12px "IBM Plex Mono"';ctx.fillText('up to 11 Hz', x+6, by+bh*0.28);}
+  // legend
+  ctx.font='11px "IBM Plex Mono"';
+  ctx.fillStyle='#3ddc97';ctx.fillText('— emission-time (correct)', bx+10, by+16);
+  ctx.fillStyle='#ff8a3d';ctx.fillText('-- naive (sound = now)', bx+10, by+32);
+  // starlight note dot
+}
+
+function heatScene(p){
+  paintVoid();
+  const m=Math.min(W,H);
+  const hw=Math.min(W*0.52,H*0.86), hx=W*0.5-hw/2, hy=H*0.1, hh=hw*0.82;
+  // heat field
+  const cols=Math.floor(hw/4),rows=Math.floor(hh/4),cw=hw/cols,ch=hh/rows;
+  const bloom=ease(p,0.1,0.7);
+  const cxp=0.56,cyp=0.46;        // winner offset
+  for(let i=0;i<cols;i++)for(let j=0;j<rows;j++){
+    const u=i/cols,v=j/rows;
+    const d1=Math.hypot((u-cxp)*1.0,(v-cyp)*1.3);
+    let val=Math.exp(-Math.pow(d1/0.12,2));
+    // mirror lobe (weaker), fades as second event locks
+    const d2=Math.hypot((u-cxp)*1.0,(v-(cyp-0.34))*1.3);
+    const mirror=Math.exp(-Math.pow(d2/0.12,2))*(0.55*(1-ease(p,0.55,0.85)));
+    val=Math.max(val*bloom,mirror*bloom);
+    val=0.08+0.92*val;
+    const c=viridis(val);
+    ctx.fillStyle=rgb(c);ctx.fillRect(hx+i*cw,hy+j*ch,cw+0.6,ch+0.6);
+  }
+  ctx.strokeStyle='#232a3f';ctx.strokeRect(hx,hy,hw,hh);
+  // flight tracks through
+  ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(hx+hw*0.2,hy+hh*0.9);ctx.lineTo(hx+hw*0.95,hy+hh*0.1);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(hx+hw*0.05,hy+hh*0.2);ctx.lineTo(hx+hw*0.8,hy+hh*0.95);ctx.stroke();
+  // truth +
+  const tx=hx+hw*cxp,ty=hy+hh*cyp;
+  if(p>0.6){ctx.strokeStyle='#ff4d4d';ctx.lineWidth=2.4;
+    ctx.beginPath();ctx.moveTo(tx-9,ty);ctx.lineTo(tx+9,ty);ctx.moveTo(tx,ty-9);ctx.lineTo(tx,ty+9);ctx.stroke();
+    ctx.font='12px "IBM Plex Mono"';ctx.fillStyle='#ffd27a';ctx.fillText('0 m',tx+12,ty-6);}
+  frameLabel(hy,'LOCKED SCORE  —  heat map',Math.min(1,p*2),hx+6);
+}
+
+function parallel(p){
+  paintVoid();
+  const t=ease(p,0,1);
+  const midy=H*0.5;
+  // left: satellites over emitter ; right: aircraft over recorder
+  function cluster(cx,moverY,moverLabel,groundLabel,col,flip){
+    // ground node
+    ctx.fillStyle=col;ctx.beginPath();ctx.arc(cx,midy+H*0.18,5,0,7);ctx.fill();
+    ctx.font='11px "IBM Plex Mono"';ctx.fillStyle='#9aa3bd';ctx.textAlign='center';
+    ctx.fillText(groundLabel,cx,midy+H*0.18+22);
+    // two movers
+    for(let k=0;k<2;k++){
+      const mx=cx+(k?60:-60), my=moverY;
+      ctx.fillStyle='#e7ecf7';ctx.fillRect(mx-6,my-1,12,2);ctx.fillRect(mx-1,my-4,2,8);
+      ctx.strokeStyle=col;ctx.globalAlpha=0.5*t;ctx.lineWidth=1.3;
+      ctx.beginPath();ctx.moveTo(mx,my);ctx.lineTo(cx,midy+H*0.18);ctx.stroke();ctx.globalAlpha=1;
+    }
+    ctx.fillStyle='#636c89';ctx.fillText(moverLabel,cx,moverY-14);
+    ctx.textAlign='left';
+  }
+  cluster(W*0.28,midy-H*0.22,'satellites','jammer','#8aa0ff');
+  cluster(W*0.72,midy-H*0.22,'aircraft','recorder','#ff8a3d');
+  // middle equivalence
+  ctx.textAlign='center';ctx.font='13px "Space Grotesk"';ctx.fillStyle='#cdd3e6';
+  ctx.globalAlpha=t;
+  ctx.fillText('≡', W*0.5, midy-H*0.06);
+  ctx.font='11px "IBM Plex Mono"';ctx.fillStyle='#636c89';
+  ctx.fillText('FDOA · TDOA', W*0.28, midy+H*0.3);
+  ctx.fillText('Doppler · timing', W*0.72, midy+H*0.3);
+  ctx.globalAlpha=1;ctx.textAlign='left';
+}
+
+/* ===================== player ===================== */
+const narr=document.getElementById('narr');
+const chipsBox=document.getElementById('chips');
+const rail=document.getElementById('rail');
+const fill=document.getElementById('fill');
+const track=document.getElementById('track');
+const tcount=document.getElementById('tcount');
+const pp=document.getElementById('pp');
+const ppIcon=document.getElementById('ppIcon');
+
+// scene durations re-timed to the narration audio (paragraph boundaries)
+const DUR=[16.23,16.82,22.18,19.58,16.44,15.81,19.65,14.92,17.57];
+scenes.forEach((s,i)=>{ if(DUR[i]!=null) s.dur=DUR[i]; });
+let total=scenes.reduce((a,s)=>a+s.dur,0);   // fallback clock length
+const starts=[];{let acc=0;scenes.forEach(s=>{starts.push(acc);acc+=s.dur;});}
+const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const audio=document.getElementById('vo');
+
+// build narration layers + rail + segment ticks
+scenes.forEach((s,i)=>{
+  const L=document.createElement('div');L.className='layer';L.dataset.i=i;
+  L.innerHTML=`<div class="narr-slide">
+     <div class="stage-no">STAGE ${s.no} <span class="slash">/</span> ${s.tag}</div>
+     <div class="headline">${s.head}</div>
+     <p class="say">${s.say}</p></div>`;
+  narr.appendChild(L);
+  const b=document.createElement('button');b.innerHTML=`<span class="n">${s.no}</span>${s.tag}`;
+  b.onclick=()=>{seek(starts[i]+0.001);if(!playing)play();};
+  rail.appendChild(b);
+  const seg=document.createElement('div');seg.className='seg';seg.style.left=(starts[i]/total*100)+'%';
+  track.appendChild(seg);
+});
+const layers=[...narr.children];
+const railBtns=[...rail.children];
+
+// size the caption band to the tallest scene so copy never collides with controls
+function fitCaption(){
+  let mh=150;
+  layers.forEach(L=>{
+    const pp=L.style.position,po=L.style.opacity,pv=L.style.visibility;
+    L.style.position='static';L.style.opacity='0';L.style.visibility='hidden';
+    const h=L.firstElementChild.offsetHeight; if(h>mh)mh=h;
+    L.style.position=pp;L.style.opacity=po;L.style.visibility=pv;
+  });
+  narr.style.minHeight=(mh+10)+'px';
+}
+
+let tNow=0,playing=false,last=0,cur=-1;
+
+function setScene(i){
+  if(i===cur)return;
+  cur=i;
+  layers.forEach((L,k)=>L.classList.toggle('on',k===i));
+  railBtns.forEach((b,k)=>b.classList.toggle('cur',k===i));
+  // chips
+  chipsBox.innerHTML='';
+  (scenes[i].chips||[]).forEach((c,ci)=>{
+    const d=document.createElement('div');d.className='chip'+(c[2]?' good':'');
+    d.innerHTML=`<span class="k">${c[0]}</span><span class="v">${c[1]}</span>`;
+    chipsBox.appendChild(d);
+    setTimeout(()=>d.classList.add('show'), reduce?0:260+ci*180);
+  });
+}
+
+// audio is the master clock when it is available; otherwise fall back to rAF time
+const hasAudio=()=>audio && !isNaN(audio.duration) && audio.duration>0;
+function clock(){ return hasAudio()?audio.currentTime:total; }
+
+function frame(ts){
+  if(!playing)return;
+  if(hasAudio()) tNow=audio.currentTime;
+  else { const dt=Math.min(0.05,(ts-last)/1000); last=ts; tNow+=dt; if(tNow>=total){tNow=total;pause();} }
+  render();
+  if(playing)requestAnimationFrame(frame);
+}
+
+function render(){
+  const len=hasAudio()?audio.duration:total;
+  let i=scenes.length-1;
+  for(let k=0;k<scenes.length;k++){if(tNow<starts[k]+scenes[k].dur){i=k;break;}}
+  setScene(i);
+  const p=Math.max(0,Math.min(1,(tNow-starts[i])/scenes[i].dur));
+  scenes[i].draw(reduce?1:p);
+  fill.style.width=Math.min(100,(tNow/len*100))+'%';
+  const sec=Math.floor(tNow);tcount.textContent=`${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`;
+}
+
+function setIcon(pl){ ppIcon.innerHTML = pl
+  ? '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>'
+  : '<path d="M8 5v14l11-7z"/>'; }
+
+function play(){
+  playing=true; setIcon(true); last=performance.now();
+  if(hasAudio()){ audio.play().catch(()=>{}); }
+  requestAnimationFrame(frame);
+}
+function pause(){ playing=false; setIcon(false); if(hasAudio()) audio.pause(); }
+function seek(t){
+  const len=hasAudio()?audio.duration:total;
+  tNow=Math.max(0,Math.min(len,t));
+  if(hasAudio()) audio.currentTime=tNow;
+  render();
+}
+pp.onclick=()=>{ const len=hasAudio()?audio.duration:total; if(tNow>=len-0.05)seek(0); playing?pause():play(); };
+track.onclick=e=>{const r=track.getBoundingClientRect();const len=hasAudio()?audio.duration:total;
+  seek((e.clientX-r.left)/r.width*len);};
+
+// mute toggle
+const mute=document.getElementById('mute');
+mute.onclick=()=>{ audio.muted=!audio.muted; mute.classList.toggle('off',audio.muted);
+  mute.setAttribute('aria-label',audio.muted?'Unmute narration':'Mute narration'); };
+
+// audio lifecycle
+audio.addEventListener('ended',()=>{ pause(); });
+audio.addEventListener('loadedmetadata',()=>{ render(); });
+
+resize();
+setScene(0);render();
+fitCaption();
+if(document.fonts&&document.fonts.ready){document.fonts.ready.then(fitCaption);}
+setTimeout(fitCaption,450);
+// Start paused with a clear play affordance (browsers block autoplay with sound).
+pause();
+window.addEventListener('resize',()=>{resize();fitCaption();render();});
+</script>
+</body>
+</html>
