@@ -77,22 +77,17 @@
 
 <section class="card" id="connect">
   <div class="lab">BEFORE ANY SEARCH</div>
-  <h2>Point this page at the studio.</h2>
-  <p>This page is the window. The arithmetic stays in the dopgeo package, on a machine you reach in a browser. Vercel only serves these pages. A serverless function cannot hold the hear table, ffmpeg, or a terrain file, so the search is not computed here. A database is not in the path either. The audit log is written on the studio machine, next to the job, and it stays there.</p>
+  <h2>Sign in. The studio is already connected.</h2>
+  <p>This page is the window. The arithmetic stays in the dopgeo package on the studio machine. Vercel only serves these pages. A serverless function cannot hold the hear table, ffmpeg, or a terrain file, so the search is not computed here. A database is not in the path either. The audit log is written on the studio machine, next to the job, and it stays there.</p>
   <div class="why">
     <h3>Why a token</h3>
     <p>The page can be on the public web. The search should not be. The studio refuses every run until the shared token matches. A real recording also needs a purpose sentence, which is stored with your name, the time, a hash of the file, and the one-line result.</p>
   </div>
-  <label class="f">Studio address
-    <input id="api" placeholder="https://the-studio-address" autocomplete="off">
-  </label>
-  <p class="note" id="mix"></p>
   <div class="row">
     <label class="f">Your name<input id="user" autocomplete="username" maxlength="80"></label>
     <label class="f">Shared token<input id="token" type="password" autocomplete="current-password"></label>
   </div>
   <button class="btn" id="connectBtn" type="button">Connect</button>
-  <p class="note">127.0.0.1 means the computer you are sitting at. This Vercel page cannot see a studio that is running somewhere else. Leave this field blank until the studio has an https address your browser can open.</p>
   <div id="connectMsg"></div>
 </section>
 
@@ -140,7 +135,13 @@
 
 <script>
 const $ = (id) => document.getElementById(id);
+const PUBLIC_STUDIO = "https://ons-nova-dome-ecommerce.trycloudflare.com";
 const state = { api:"", user:"", token:"", job:null, extent:null, duration:0, boxes:[], mode:"" };
+function studioUrl(){
+  const host = location.hostname;
+  if (host === "127.0.0.1" || host === "localhost") return location.origin;
+  return PUBLIC_STUDIO;
+}
 
 function msg(el, text, ok){
   el.innerHTML = text ? `<div class="banner ${ok?"ok":"bad"}"></div>` : "";
@@ -270,23 +271,11 @@ function mountResult(host, ev){
 }
 
 $("connectBtn").onclick = async ()=>{
-  state.api = $("api").value.trim();
+  state.api = studioUrl();
   state.user = $("user").value.trim();
   state.token = $("token").value;
   msg($("connectMsg"), "");
-  if(!state.api || !state.user || !state.token){ msg($("connectMsg"), "Fill in the studio address, your name, and the token."); return; }
-  let host = "";
-  try { host = new URL(state.api).hostname; } catch (e) { host = ""; }
-  const local = host === "127.0.0.1" || host === "localhost" || host === "::1";
-  const here = location.hostname === "127.0.0.1" || location.hostname === "localhost";
-  if(local && !here){
-    msg($("connectMsg"), "127.0.0.1 is your own computer, and nothing there is answering. The studio started for this project is on another machine. This Vercel page cannot use 127.0.0.1.");
-    return;
-  }
-  if(location.protocol==="https:" && state.api.startsWith("http:")){
-    msg($("connectMsg"), "This page is https and that studio address is http. The browser will block the call. The studio needs an https address.");
-    return;
-  }
+  if(!state.user || !state.token){ msg($("connectMsg"), "Type your name and the shared token."); return; }
   $("connectBtn").disabled=true;
   try{
     const res = await fetch(apiBase()+"/auth/login", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({user:state.user, token:state.token})});
@@ -504,11 +493,8 @@ async function runLocate(){
   finally{ const b=$("locate"); if(b) b.disabled=false; }
 }
 
-const savedApi=sessionStorage.getItem("dopgeo.api");
 const savedUser=sessionStorage.getItem("dopgeo.user");
 if(savedUser) $("user").value=savedUser;
-if(savedApi) $("api").value=savedApi;
-else if(location.protocol!=="https:" || !location.hostname.endsWith("vercel.app")) $("api").value=location.origin;
 $("token").value=sessionStorage.getItem("dopgeo.token")||"";
 </script>
 </body>
