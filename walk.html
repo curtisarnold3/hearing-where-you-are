@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FLYOVER — learn to hear where a recording was made</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    color-scheme:dark;
+    --void:#090a10;--void2:#0c0e16;--panel:#111422;--panel2:#161a2b;
+    --line:#2b3350;--ink:#f3ecdd;--dim:#9aa3bd;--dimmer:#636c89;
+    --ember:#ff8a3d;--ember-hot:#ffd27a;--crimson:#e4453f;--teal:#3ddc97;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--void);color:var(--ink);
+    font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  body{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);overflow-x:hidden}
+  body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:60;background:var(--void)}
+  .wrap{max-width:1060px;margin:0 auto;padding:0 clamp(14px,3vw,34px)}
+
+  header.top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;padding:clamp(16px,4vw,30px) 0 12px}
+  .mark{font-family:"Space Grotesk";font-weight:700;letter-spacing:.14em;font-size:clamp(16px,2.6vw,20px);color:var(--ember)}
+  .case{color:var(--dim);font-size:13px}
+  .score{margin-left:auto;font-family:"IBM Plex Mono";font-size:13px;color:var(--dimmer);
+    border:1px solid var(--line);border-radius:7px;padding:5px 11px;white-space:nowrap}
+  .score b{color:var(--ember-hot)}
+
+  /* step rail */
+  .steps{display:flex;gap:7px;margin:4px 0 12px;flex-wrap:wrap}
+  .steps .s{flex:1;min-width:120px;border:1px solid #1c2233;border-radius:8px;padding:8px 11px;background:#0d1019;
+    font-family:"IBM Plex Mono";font-size:11.5px;color:var(--dimmer);transition:.3s}
+  .steps .s .n{color:var(--dimmer);margin-right:7px}
+  .steps .s.cur{border-color:var(--ember);color:var(--ink);background:#15192a}
+  .steps .s.cur .n{color:var(--ember)}
+  .steps .s.done{border-color:#1d4638;color:var(--teal)}
+  .steps .s.done .n{color:var(--teal)}
+  .steps .s.done .n::before{content:"✓ "}
+
+  .console{position:relative;border:1px solid var(--line);border-radius:14px;overflow:hidden;
+    background:radial-gradient(140% 90% at 50% -10%, #1a2036 0%, var(--void2) 55%, var(--void) 100%);
+    box-shadow:0 30px 80px -40px #000, inset 0 1px 0 #ffffff10}
+  .screen{position:relative;width:100%;aspect-ratio:16/10;min-height:300px;touch-action:none;
+    user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-user-drag:none}
+  .screen canvas{-webkit-user-drag:none;user-select:none}
+  @media(max-width:640px){.screen{aspect-ratio:3/4}}
+  canvas{position:absolute;inset:0;width:100%;height:100%}
+  .hud{position:absolute;top:12px;left:14px;right:14px;display:flex;gap:10px;align-items:flex-start;pointer-events:none}
+  .obj{background:#0b0e18d9;border:1px solid var(--line);border-radius:8px;padding:7px 11px;max-width:62%}
+  .obj .t{font-family:"IBM Plex Mono";font-size:11px;color:var(--ember);letter-spacing:.1em}
+  .obj .d{font-size:13px;color:var(--ink);margin-top:3px;line-height:1.35}
+  .readouts{margin-left:auto;display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+  .ro{font-family:"IBM Plex Mono";font-size:12px;background:#0b0e18d9;border:1px solid var(--line);
+    border-radius:7px;padding:4px 9px;color:var(--dim);opacity:0;transform:translateX(6px);transition:.4s}
+  .ro.show{opacity:1;transform:none}.ro .v{color:var(--ember-hot)}
+  .flash{position:absolute;left:50%;top:14px;transform:transl(-50%,-8px);text-align:center;
+    font-family:"Space Grotesk";font-weight:600;font-size:clamp(16px,2.4vw,22px);
+    background:#0b0e18ee;border:1px solid var(--line);border-radius:10px;padding:9px 18px;
+    opacity:0;transition:.45s;pointer-events:none;max-width:72%}
+  .flash{transform:translate(-50%,-8px)}
+  .flash.show{opacity:1;transform:translate(-50%,0)}
+  .flash.good{color:var(--teal);border-color:#1d4638}.flash.warn{color:var(--ember-hot);border-color:#4a3a1a}
+  .flash small{display:block;font-family:Inter;font-weight:500;font-size:13px;color:var(--dim);margin-top:4px}
+
+  /* teach + controls dock */
+  .dock{margin-top:16px;min-height:150px}
+  .teach .lab{font-family:"IBM Plex Mono";font-size:12px;color:var(--ember);letter-spacing:.12em}
+  .teach h2{font-family:"Space Grotesk";font-weight:600;letter-spacing:-.02em;font-size:clamp(19px,3vw,27px);
+    margin:.3em 0 .35em;line-height:1.1}
+  .teach p{color:var(--dim);font-size:15px;line-height:1.55;max-width:60ch;margin:0}
+  .teach p .em{color:var(--ember-hot);font-weight:600}.teach p .tl{color:var(--teal);font-weight:600}
+  .teach p b{color:var(--ink);font-weight:600}
+
+  .controls{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin-top:16px}
+  .sliders{display:flex;gap:22px;flex-wrap:wrap;flex:1;min-width:260px}
+  .sl{flex:1;min-width:200px}
+  .sl label{display:flex;justify-content:space-between;font-family:"IBM Plex Mono";font-size:12px;color:var(--dim);margin-bottom:6px}
+  .sl label .v{color:var(--ember-hot)}
+  input[type=range]{-webkit-appearance:none;width:100%;height:4px;border-radius:4px;background:#1d2234;outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;
+    background:var(--ember);cursor:pointer;border:2px solid #1a1200;box-shadow:0 0 0 4px #ff8a3d22}
+  input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--ember);border:2px solid #1a1200;cursor:pointer}
+  .err{min-width:150px}
+  .err .bar{height:8px;border-radius:5px;background:#1d2234;overflow:hidden;margin-top:6px}
+  .err .bar i{display:block;height:100%;width:100%;border-radius:5px;
+    background:linear-gradient(90deg,var(--teal),var(--ember),var(--crimson));transition:width .15s,opacity .3s}
+
+  .filters{display:flex;gap:9px;flex-wrap:wrap}
+  .filters button{all:unset;cursor:pointer;font-family:"IBM Plex Mono";font-size:12.5px;color:var(--dim);
+    border:1px solid var(--line);border-radius:8px;padding:9px 13px;background:#0e1220;transition:.2s;line-height:1.3}
+  .filters button:hover{border-color:var(--ember);color:var(--ink)}
+  .filters button.done{border-color:#1d4638;color:var(--teal);background:#0c1a14;cursor:default}
+  .filters button.done::before{content:"✓ "}
+  .filters button.key{box-shadow:0 0 0 3px #ff8a3d22}
+
+  .btn{all:unset;cursor:pointer;font-family:"Space Grotesk";font-weight:600;font-size:15px;
+    background:var(--ember);color:#160b02;border-radius:10px;padding:11px 22px;transition:.2s;white-space:nowrap}
+  .btn:hover{background:var(--ember-hot)}
+  .btn[disabled]{opacity:.35;cursor:not-allowed;background:#3a4055;color:#aab}
+  .btn.ghost{background:transparent;color:var(--dim);border:1px solid var(--line)}
+  .btn.ghost:hover{color:var(--ink);border-color:var(--ember)}
+
+  .count{font-family:"IBM Plex Mono";font-size:clamp(22px,4vw,34px);color:var(--ember-hot);font-weight:500}
+  .count small{font-size:13px;color:var(--dimmer)}
+
+  footer{max-width:1060px;margin:0 auto;padding:22px clamp(14px,3vw,34px) 54px;color:var(--dimmer);
+    font-size:12.5px;line-height:1.6;border-top:1px solid #161a28;margin-top:26px}
+  footer a{color:var(--dim)}
+  a{color:var(--dim)}
+  @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <span class="mark">FLYOVER</span>
+    <span class="case" id="case">CASE 1 — a clip with no location. find where it was filmed.</span>
+    <span class="score">SCORE <b id="score">0</b></span>
+  </header>
+
+  <div class="steps" id="steps"></div>
+
+  <div class="console">
+    <div class="screen" id="screen">
+      <canvas id="cv"></canvas>
+      <div class="hud">
+        <div class="obj"><div class="t" id="objT">OBJECTIVE</div><div class="d" id="objD">—</div></div>
+        <div class="readouts" id="ros"></div>
+      </div>
+      <div class="flash" id="flash"></div>
+    </div>
+  </div>
+
+  <div class="dock">
+    <div class="teach" id="teach"></div>
+    <div class="controls" id="ctl"></div>
+  </div>
+</div>
+
+<footer>
+  A learning game. You do the real steps of acoustic geolocation; the physics underneath is the same one that
+  located an inaudible flyover in <a href="https://www.youtube.com/watch?v=UytYrhYLOKI">colsto&rsquo;s demonstration</a>.
+  Flight data in the real method comes from <a href="https://adsb.lol">adsb.lol</a>. For controlled learning and
+  evaluation.
+</footer>
+
+<script>
+"use strict";
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const screen=document.getElementById('screen');
+let DPR=Math.min(2,devicePixelRatio||1),W=0,H=0;
+function resize(){const r=screen.getBoundingClientRect();W=r.width;H=r.height;
+  cv.width=W*DPR|0;cv.height=H*DPR|0;ctx.setTransform(DPR,0,0,DPR,0,0);draw();}
+addEventListener('resize',resize);
+
+/* colormaps */
+function ramp(s){return t=>{t=Math.max(0,Math.min(1,t));const n=s.length-1,x=t*n,i=Math.min(n-1,x|0),f=x-i,a=s[i],b=s[i+1];
+  return[a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f,a[2]+(b[2]-a[2])*f]}}
+const magma=ramp([[0,0,4],[28,16,68],[79,18,123],[129,37,129],[181,54,122],[229,80,100],[251,135,97],[254,194,135],[252,253,191]]);
+const grey=ramp([[8,9,16],[40,44,60],[90,96,120],[150,156,180],[210,214,230],[245,246,250]]);
+const viridis=ramp([[68,1,84],[72,40,120],[62,74,137],[49,104,142],[38,130,142],[31,158,137],[53,183,121],[109,205,89],[180,222,44],[253,231,37]]);
+const rgb=c=>`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`;
+const _p=new Float32Array(2048);for(let i=0;i<2048;i++)_p[i]=Math.random();
+function noise(a,b){const i=((Math.floor(a)*57+Math.floor(b)*131)%2048+2048)%2048,i2=(i+1)%2048,f=(a+b)-Math.floor(a+b);return _p[i]*(1-f)+_p[i2]*f}
+
+/* physics: heard frequency of a straight constant-speed pass */
+const C=343, TWIN=24, FLO=50, FHI=215;
+function fHeard(t,v,dmin,f0,tc){const x=v*(t-tc);const dist=Math.hypot(x,dmin);const vr=v*(-x)/dist;return f0*C/(C-vr);}
+const freq2y=(f,y,h)=>y+(1-(f-FLO)/(FHI-FLO))*h;
+const x2t=(x,X,w)=>(x-X)/w*TWIN;
+
+/* the truth for case 1 */
+const TRUTH={v:92,dmin:1150,f0:120,tc:12};
+
+/* spectrogram with the true ridge */
+function spectro(x,y,w,h,cmap,bright){
+  const cols=Math.max(90,w/3|0),rows=Math.max(60,h/3|0),cw=w/cols,ch=h/rows;
+  for(let i=0;i<cols;i++){const t=i/(cols-1)*TWIN;
+    const f1=fHeard(t,TRUTH.v,TRUTH.dmin,TRUTH.f0,TRUTH.tc), f2=f1*2;
+    for(let j=0;j<rows;j++){const fr=FLO+(1-j/(rows-1))*(FHI-FLO);
+      let val=0.10+0.13*noise(i*0.2+3,j*0.3);
+      const on=(t>TRUTH.tc-9&&t<TRUTH.tc+9)?1:0.3;
+      val+=Math.exp(-Math.pow((fr-f1)/5,2))*1.15*bright*on;
+      val+=Math.exp(-Math.pow((fr-f2)/5,2))*0.4*bright*on;
+      const c=cmap(val);ctx.fillStyle=`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`;
+      ctx.fillRect(x+i*cw,y+j*ch,cw+0.6,ch+0.6);}}
+  ctx.strokeStyle='#ffffff10';ctx.strokeRect(x,y,w,h);
+}
+function ridgePts(x,y,w,h){const pts=[];for(let i=0;i<=120;i++){const t=i/120*TWIN;
+  if(t<TRUTH.tc-9||t>TRUTH.tc+9)continue;const f=fHeard(t,TRUTH.v,TRUTH.dmin,TRUTH.f0,TRUTH.tc);
+  pts.push([x+t/TWIN*w, freq2y(f,y,h), t, f]);}return pts;}
+
+/* ===== game state ===== */
+const state={step:1,score:0,trace:null,match:{v:60,d:2000,locked:false},filters:new Set(),pin:null,tries:0};
+window.state=state;
+const PLOT=()=>({x:W*0.08,y:H*0.12,w:W*0.84,h:H*0.66});
+const MAP=()=>{const s=Math.min(W*0.62,H*0.84);return{x:W*0.5-s/2,y:H*0.09,w:s,h:s*0.82}};
+
+const STEPS=[["01","TRACE"],["02","MATCH"],["03","NARROW"],["04","PIN"]];
+const stepsEl=document.getElementById('steps');
+STEPS.forEach(s=>{const d=document.createElement('div');d.className='s';d.innerHTML=`<span class="n">${s[0]}</span>${s[1]}`;stepsEl.appendChild(d);});
+function paintSteps(){[...stepsEl.children].forEach((e,i)=>{e.classList.toggle('cur',i+1===state.step);
+  e.classList.toggle('done',i+1<state.step || (i+1===4&&state.step>4));});}
+
+const objT=document.getElementById('objT'),objD=document.getElementById('objD'),ros=document.getElementById('ros');
+const flash=document.getElementById('flash'),teach=document.getElementById('teach'),ctl=document.getElementById('ctl');
+const scoreEl=document.getElementById('score');
+function setScore(add){state.score+=add;scoreEl.textContent=state.score;}
+function showReadouts(items){ros.innerHTML='';items.forEach((it,i)=>{const d=document.createElement('div');d.className='ro';
+  d.innerHTML=`${it[0]} <span class="v">${it[1]}</span>`;ros.appendChild(d);setTimeout(()=>d.classList.add('show'),120+i*160);});}
+let flashTimer=null;
+function doFlash(txt,cls,sub){flash.className='flash '+(cls||'');flash.innerHTML=txt+(sub?`<small>${sub}</small>`:'');
+  flash.classList.add('show');clearTimeout(flashTimer);flashTimer=setTimeout(()=>flash.classList.remove('show'),1900);}
+function clearFlash(){clearTimeout(flashTimer);flash.classList.remove('show');}
+
+/* ===== render ===== */
+function draw(){ctx.clearRect(0,0,W,H);
+  if(state.step===1)drawTrace();
+  else if(state.step===2)drawMatch();
+  else if(state.step===3)drawNarrow();
+  else if(state.step>=4)drawPin();
+}
+function bg(){const g=ctx.createRadialGradient(W/2,H*0.3,20,W/2,H*0.4,W*0.8);
+  g.addColorStop(0,'#10141f');g.addColorStop(1,'#090a10');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
+
+/* STEP 1 */
+function drawTrace(){const P=PLOT();spectro(P.x,P.y,P.w,P.h,magma,1);
+  ctx.font='11px "IBM Plex Mono"';ctx.fillStyle='#cdd3e6';ctx.fillText('SPECTROGRAM  —  one flyover',P.x+6,P.y+15);
+  // axes hints
+  ctx.save();ctx.translate(P.x-4,P.y+P.h*0.5);ctx.rotate(-Math.PI/2);ctx.fillStyle='#8b93a7';ctx.textAlign='center';ctx.fillText('frequency',0,0);ctx.restore();
+  ctx.fillStyle='#8b93a7';ctx.fillText('time →',P.x+P.w-52,P.y+P.h+16);
+  const t=state.trace;
+  if(t){ctx.strokeStyle=t.ok?'#3ddc97':'#ffd27a';ctx.lineWidth=2;ctx.setLineDash([5,4]);
+    ctx.strokeRect(Math.min(t.x0,t.x1),Math.min(t.y0,t.y1),Math.abs(t.x1-t.x0),Math.abs(t.y1-t.y0));ctx.setLineDash([]);
+    if(t.ok){const pts=ridgePts(P.x,P.y,P.w,P.h);ctx.strokeStyle='#ff8a3d';ctx.lineWidth=2.5;ctx.beginPath();
+      pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();}
+  }
+}
+/* STEP 2 */
+function drawMatch(){const P=PLOT();spectro(P.x,P.y,P.w,P.h,grey,0.8);
+  const pts=ridgePts(P.x,P.y,P.w,P.h);
+  // true ridge faint
+  ctx.strokeStyle='#ffffff55';ctx.lineWidth=2;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();
+  // predicted from sliders
+  const m=state.match;ctx.strokeStyle=m.locked?'#3ddc97':'#4ec9ff';ctx.lineWidth=2.6;ctx.beginPath();let st=false;
+  for(let t=TRUTH.tc-9;t<=TRUTH.tc+9;t+=0.2){const f=fHeard(t,m.v,m.d,TRUTH.f0,TRUTH.tc);
+    const x=P.x+t/TWIN*P.w,y=freq2y(f,P.y,P.h);if(!st){ctx.moveTo(x,y);st=true}else ctx.lineTo(x,y);}
+  ctx.stroke();
+  ctx.font='11px "IBM Plex Mono"';ctx.fillStyle='#4ec9ff';ctx.fillText('— your prediction',P.x+6,P.y+15);
+  ctx.fillStyle='#cdd3e6';ctx.fillText('— the real curve',P.x+6,P.y+30);
+}
+function matchErr(){const m=state.match;let s=0,n=0;for(let t=TRUTH.tc-8;t<=TRUTH.tc+8;t+=0.5){
+  const a=fHeard(t,m.v,m.d,TRUTH.f0,TRUTH.tc),b=fHeard(t,TRUTH.v,TRUTH.dmin,TRUTH.f0,TRUTH.tc);s+=(a-b)*(a-b);n++;}return Math.sqrt(s/n);}
+/* STEP 3 */
+let candAlpha=1;
+function drawNarrow(){bg();const P=PLOT();
+  // candidate cloud
+  const kept=CAND_COUNT[state.filters.size];
+  const n=420;const show=Math.round(n*(kept/22801)**0.22);
+  for(let k=0;k<n;k++){const rx=noise(k*1.3,7),ry=noise(k*2.1,19);
+    const x=P.x+rx*P.w,y=P.y+ry*P.h;const alive=k<show;
+    ctx.fillStyle=alive?'rgba(255,138,61,.8)':'rgba(120,130,160,.10)';
+    ctx.beginPath();ctx.arc(x,y,alive?2.6:1.4,0,7);ctx.fill();}
+  ctx.font='12px "IBM Plex Mono"';ctx.fillStyle='#8b93a7';ctx.fillText('candidate locations on the ground',P.x,P.y-10);
+}
+const CAND_COUNT=[22801,16970,4502,273,138];
+/* STEP 4 */
+function drawPin(){bg();const M=MAP();
+  const cols=M.w/4|0,rows=M.h/4|0,cw=M.w/cols,ch=M.h/rows;
+  const core=[0.57,0.44],mir=[0.57,0.14];const locked=state.step>4;
+  for(let i=0;i<cols;i++)for(let j=0;j<rows;j++){const u=i/cols,v=j/rows;
+    let val=Math.exp(-(((u-core[0])*1.0)**2+((v-core[1])*1.3)**2)/0.012);
+    const mv=Math.exp(-(((u-mir[0])*1.0)**2+((v-mir[1])*1.3)**2)/0.012)*(locked?0.12:0.6);
+    val=0.07+0.93*Math.max(val,mv);const c=viridis(val);
+    ctx.fillStyle=`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`;ctx.fillRect(M.x+i*cw,M.y+j*ch,cw+0.6,ch+0.6);}
+  ctx.strokeStyle='#ffffff14';ctx.strokeRect(M.x,M.y,M.w,M.h);
+  // flight tracks
+  ctx.strokeStyle='rgba(255,255,255,.3)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(M.x+M.w*0.15,M.y+M.h*0.95);ctx.lineTo(M.x+M.w*0.95,M.y+M.h*0.08);ctx.stroke();
+  if(locked){ctx.beginPath();ctx.moveTo(M.x+M.w*0.04,M.y+M.h*0.25);ctx.lineTo(M.x+M.w*0.82,M.y+M.h*0.96);ctx.stroke();}
+  ctx.font='11px "IBM Plex Mono"';ctx.fillStyle='#cdd3e6';ctx.fillText('PREDICTED HEAT MAP — brighter = better match',M.x+6,M.y+15);
+  // player pin
+  if(state.pin){const px=M.x+state.pin.u*M.w,py=M.y+state.pin.v*M.h;
+    ctx.strokeStyle='#ffffff';ctx.lineWidth=2;ctx.beginPath();ctx.arc(px,py,7,0,7);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(px-11,py);ctx.lineTo(px+11,py);ctx.moveTo(px,py-11);ctx.lineTo(px,py+11);ctx.stroke();}
+  // truth when locked
+  if(locked){const tx=M.x+core[0]*M.w,ty=M.y+core[1]*M.h;
+    ctx.strokeStyle='#ff4d4d';ctx.lineWidth=2.4;ctx.beginPath();
+    ctx.moveTo(tx-9,ty);ctx.lineTo(tx+9,ty);ctx.moveTo(tx,ty-9);ctx.lineTo(tx,ty+9);ctx.stroke();
+    ctx.fillStyle='#ffd27a';ctx.font='12px "IBM Plex Mono"';ctx.fillText('recorder',tx+12,ty-6);}
+}
+
+/* ===== steps UI ===== */
+function go(step){state.step=step;paintSteps();clearFlash();ros.innerHTML='';render();draw();}
+function render(){
+  if(state.step===1){
+    objT.textContent='OBJECTIVE 01';objD.textContent='Drag a box around the bright curve that slides downward.';
+    teach.innerHTML=`<div class="lab">STEP 01 · TRACE THE SIGNATURE</div>
+      <h2>Catch the sound the plane left behind.</h2>
+      <p>That bright line sliding down is one engine, recorded as it passed. <b>Drag a box around it.</b>
+      The <span class="em">depth</span> of its drop hides the plane&rsquo;s speed; the <span class="em">steepness</span> hides how close it came. Grab it and we&rsquo;ll read those out.</p>`;
+    ctl.innerHTML=`<button class="btn" id="next" ${state.trace&&state.trace.passed?'':'disabled'}>Read the curve →</button>
+      <button class="btn ghost" id="reset">Clear box</button>`;
+    document.getElementById('next').onclick=()=>go(2);
+    document.getElementById('reset').onclick=()=>{state.trace=null;ros.innerHTML='';clearFlash();
+      const ab=document.getElementById('autotrace');if(ab)ab.remove();
+      document.getElementById('next').disabled=true;draw();
+      clearTraceHelp();state.misses=0;traceHelpTimer=setTimeout(showAutoTrace,9000);};
+    clearTraceHelp();state.misses=0;
+    if(!(state.trace&&state.trace.passed))traceHelpTimer=setTimeout(showAutoTrace,9000);
+  }
+  else if(state.step===2){
+    objT.textContent='OBJECTIVE 02';objD.textContent='Tune the sliders until your curve sits on the real one.';
+    teach.innerHTML=`<div class="lab">STEP 02 · MATCH THE PHYSICS</div>
+      <h2>You can&rsquo;t un-hear a path. So predict one and match it.</h2>
+      <p>Slide <b>speed</b> and <b>closest distance</b> until your blue curve lands on the white one.
+      Watch what each does: faster widens the <span class="em">drop</span>, closer <span class="em">sharpens the bend</span>. When the error turns green, you&rsquo;ve recovered the pass.</p>`;
+    ctl.innerHTML=`<div class="sliders">
+       <div class="sl"><label>ground speed <span class="v" id="vv">${state.match.v} m/s</span></label>
+         <input type="range" id="sv" min="40" max="140" value="${state.match.v}"></div>
+       <div class="sl"><label>closest distance <span class="v" id="dv">${state.match.d} m</span></label>
+         <input type="range" id="sd" min="400" max="3000" step="25" value="${state.match.d}"></div>
+       <div class="err"><label style="font-family:'IBM Plex Mono';font-size:12px;color:var(--dim)">mismatch <span class="v" id="ev" style="color:var(--ember-hot)"></span></label>
+         <div class="bar"><i id="eb"></i></div></div>
+      </div>
+      <button class="btn" id="next" disabled>Lock it in →</button>`;
+    const sv=document.getElementById('sv'),sd=document.getElementById('sd');
+    const upd=()=>{state.match.v=+sv.value;state.match.d=+sd.value;
+      document.getElementById('vv').textContent=state.match.v+' m/s';
+      document.getElementById('dv').textContent=state.match.d+' m';
+      const e=matchErr();document.getElementById('ev').textContent=e.toFixed(1)+' Hz';
+      const eb=document.getElementById('eb');eb.style.width=Math.min(100,e/25*100)+'%';
+      const ok=e<3;state.match.locked=ok;document.getElementById('next').disabled=!ok;
+      eb.style.opacity=ok?'0.4':'1';
+      if(ok&&!state.match._scored){state.match._scored=true;setScore(28);doFlash('Locked.','good','You recovered the pass by feel.');}
+      draw();};
+    sv.oninput=upd;sd.oninput=upd;upd();
+    document.getElementById('next').onclick=()=>go(3);
+  }
+  else if(state.step===3){
+    objT.textContent='OBJECTIVE 03';objD.textContent='Apply all four filters. Notice which one is sneaky-powerful.';
+    teach.innerHTML=`<div class="lab">STEP 03 · NARROW THE FIELD</div>
+      <h2>Every spot on the map is a suspect. Rule them out.</h2>
+      <p>Each filter asks a cheap question and kills most of what&rsquo;s left. Tap all four.
+      The last one is the clever trick: <span class="em">silence is evidence</span> — a spot that should have heard other planes, and didn&rsquo;t, isn&rsquo;t your spot.</p>`;
+    ctl.innerHTML=`<div class="count"><span id="cc">22,801</span> <small>candidates left</small></div>
+      <div class="filters" id="fl">
+        <button data-k="0">Two passes ~15 min apart</button>
+        <button data-k="1">Match the two speeds</button>
+        <button data-k="2">Match the two distances</button>
+        <button data-k="3" class="key">Silence in between</button>
+      </div>
+      <button class="btn" id="next" disabled>Go to the map →</button>`;
+    const fl=document.getElementById('fl');
+    [...fl.children].forEach(btn=>btn.onclick=()=>{
+      if(btn.classList.contains('done'))return;btn.classList.add('done');
+      state.filters.add(+btn.dataset.k);
+      const kept=CAND_COUNT[state.filters.size];
+      document.getElementById('cc').textContent=kept.toLocaleString();
+      if(+btn.dataset.k===3)doFlash('What you don&rsquo;t hear is data.','warn','Silence just did the heavy lifting.');
+      else clearFlash();
+      draw();
+      if(state.filters.size===4){document.getElementById('next').disabled=false;setScore(22);}
+    });
+    document.getElementById('next').onclick=()=>go(4);
+  }
+  else if(state.step===4){
+    objT.textContent='OBJECTIVE 04';objD.textContent='Click the spot you believe the recorder was.';
+    teach.innerHTML=`<div class="lab">STEP 04 · DROP THE PIN</div>
+      <h2>Where was the camera?</h2>
+      <p>Lay the predicted curves back on the map and the matches light up. <b>Click the brightest patch.</b>
+      Careful — a lone straight pass looks the same from either side, so you&rsquo;ll see a <span class="em">mirror</span>. Trust the hotter one.</p>`;
+    ctl.innerHTML=`<span class="case" style="color:var(--dimmer)">Tip: brighter = better match. One click.</span>`;
+  }
+  else if(state.step===5){
+    objT.textContent='SOLVED';objD.textContent='You located it.';
+    const err=state.pin.errM;
+    const k=err<250?3:err<700?2:1;
+    const stars=`<span style="color:var(--ember-hot)">${'★'.repeat(k)}</span><span style="color:var(--dimmer)">${'★'.repeat(3-k)}</span>`;
+    teach.innerHTML=`<div class="lab" style="color:var(--teal)">CASE CLOSED</div>
+      <h2>You found it — ${Math.round(err)} m off. <span style="color:var(--ember-hot)">${stars}</span></h2>
+      <p>That&rsquo;s the whole method: hear the curve, recover the pass, rule out the map, break the mirror with a second plane.
+      On clean data the real pipeline lands at <span class="tl">0 m</span>. You scored <b>${state.score}</b>.</p>`;
+    ctl.innerHTML=`<button class="btn" id="again">Play again</button>
+      <button class="btn ghost" onclick="parent.postMessage('goIntro','*')">↻ Watch the intro</button>`;
+    document.getElementById('again').onclick=()=>{state.step=1;state.score=0;scoreEl.textContent='0';state.trace=null;
+      state.match={v:60,d:2000,locked:false};state.filters=new Set();state.pin=null;state.tries=0;go(1);};
+  }
+  paintSteps();
+}
+
+/* ===== pointer interactions ===== */
+function localXY(e){const r=cv.getBoundingClientRect();const cx=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+  const cy=(e.touches?e.touches[0].clientY:e.clientY)-r.top;return[cx,cy];}
+let dragging=false;
+let traceHelpTimer=null;
+function clearTraceHelp(){if(traceHelpTimer){clearTimeout(traceHelpTimer);traceHelpTimer=null;}}
+function traceGeom(t){const P=PLOT();
+  const x0=Math.min(t.x0,t.x1),x1=Math.max(t.x0,t.x1),y0=Math.min(t.y0,t.y1),y1=Math.max(t.y0,t.y1);
+  const pts=ridgePts(P.x,P.y,P.w,P.h);let inside=0,span=0,total=0;
+  pts.forEach(p=>{const inx=p[0]>=x0&&p[0]<=x1;if(inx){span++;if(p[1]>=y0&&p[1]<=y1)inside++;}total++;});
+  const cover=total?span/total:0, contain=span?inside/span:0;
+  const tooSmall=(x1-x0)<P.w*0.08||(y1-y0)<P.h*0.06;
+  const area=(x1-x0)*(y1-y0),full=P.w*P.h,tight=1-Math.min(1,area/full/0.5);
+  return {ok:!tooSmall&&cover>=0.3&&contain>=0.5,tooSmall,cover,contain,tight};}
+function markTracePassed(){const t=state.trace;if(!t||t.passed)return;const g=traceGeom(t);
+  t.ok=true;t.passed=true;clearTraceHelp();
+  setScore(Math.round(14+16*(g.tight||0.5)));
+  showReadouts([['speed',TRUTH.v+' m/s'],['closest dist',TRUTH.dmin+' m'],['base pitch f₀',TRUTH.f0+' Hz']]);
+  doFlash('Got it.','good','Steepness → distance. Depth → speed.');
+  const nx=document.getElementById('next');if(nx)nx.disabled=false;draw();}
+function liveTrace(){const t=state.trace;if(!t||t.passed)return;if(traceGeom(t).ok)markTracePassed();}
+function finalTrace(){const t=state.trace;if(!t||t.passed)return;const g=traceGeom(t);
+  if(g.ok){markTracePassed();return;}
+  if(g.tooSmall)doFlash('Draw a bigger box.','warn','Drag from the top-left of the line to the bottom-right.');
+  else if(g.cover<0.3)doFlash('Cover more of the line.','warn','Stretch the box left-to-right across the whole curve.');
+  else doFlash('Keep the whole line inside.','warn','The curve dips — make the box tall enough to hold it.');
+  state.misses=(state.misses||0)+1;if(state.misses>=2)showAutoTrace();draw();}
+function showAutoTrace(){if(state.step!==1)return;if(state.trace&&state.trace.passed)return;
+  if(document.getElementById('autotrace'))return;
+  const btn=document.createElement('button');btn.className='btn ghost';btn.id='autotrace';
+  btn.textContent='Trace it for me →';
+  btn.onclick=()=>{const P=PLOT();const pts=ridgePts(P.x,P.y,P.w,P.h);
+    const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
+    state.trace={x0:Math.min.apply(null,xs)-6,y0:Math.min.apply(null,ys)-12,
+      x1:Math.max.apply(null,xs)+6,y1:Math.max.apply(null,ys)+12,ok:false,passed:false};
+    markTracePassed();};
+  ctl.appendChild(btn);}
+
+// position from mouse OR touch, in canvas CSS pixels
+function evtXY(e){const r=cv.getBoundingClientRect();
+  const s=(e.touches&&e.touches[0])||(e.changedTouches&&e.changedTouches[0])||e;
+  return [s.clientX-r.left, s.clientY-r.top];}
+function startDrag(e){const[x,y]=evtXY(e);
+  if(state.step===1){dragging=true;
+    state.trace={x0:x,y0:y,x1:x,y1:y,ok:false,passed:false};draw();
+    window.addEventListener('mousemove',moveDrag);
+    window.addEventListener('touchmove',moveDrag,{passive:false});
+    window.addEventListener('mouseup',stopDrag);
+    window.addEventListener('touchend',stopDrag);
+    window.addEventListener('touchcancel',stopDrag);
+    if(e.cancelable&&e.type==='touchstart')e.preventDefault();  // suppress synthetic mouse + scroll
+  } else if(state.step===4&&!state.pin){placePin(x,y);}
+}
+function moveDrag(e){if(!dragging)return;const[x,y]=evtXY(e);
+  state.trace.x1=x;state.trace.y1=y;draw();liveTrace();        // passes the instant the box is valid
+  if(e.cancelable&&e.type==='touchmove')e.preventDefault();}
+function stopDrag(){if(!dragging)return;dragging=false;
+  window.removeEventListener('mousemove',moveDrag);
+  window.removeEventListener('touchmove',moveDrag);
+  window.removeEventListener('mouseup',stopDrag);
+  window.removeEventListener('touchend',stopDrag);
+  window.removeEventListener('touchcancel',stopDrag);
+  finalTrace();}
+screen.addEventListener('mousedown',startDrag);
+screen.addEventListener('touchstart',startDrag,{passive:false});
+screen.addEventListener('dragstart',e=>e.preventDefault());   // kill native image/canvas drag
+cv.setAttribute('draggable','false');
+window.addEventListener('blur',stopDrag);
+function placePin(x,y){const M=MAP();const u=(x-M.x)/M.w,v=(y-M.y)/M.h;
+  if(u<0||u>1||v<0||v>1)return;
+  const core=[0.57,0.44],mir=[0.57,0.14];
+  const dCore=Math.hypot((u-core[0]),(v-core[1])*1.3);
+  const dMir=Math.hypot((u-mir[0]),(v-mir[1])*1.3);
+  if(dMir<dCore&&dMir<0.12&&state.tries===0){state.tries++;
+    doFlash('That&rsquo;s the mirror.','warn','Same curve, wrong side. The hotter patch is the real one — try again.');return;}
+  // commit
+  const errM=Math.round(dCore*9000); // map ~ 9 km across
+  state.pin={u,v,errM};
+  const sc=Math.max(5,Math.round(30*(1-Math.min(1,dCore/0.35))));setScore(sc);
+  state.step=4.5;draw(); // show pin
+  setTimeout(()=>{state.step=5;draw();doFlash('Recorder located.','good','The second plane breaks the mirror.');
+    setTimeout(render,600);},900);
+}
+
+/* boot */
+resize();go(1);
+</script>
+</body>
+</html>

@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Run the tool — Hearing Where You Are</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{color-scheme:dark;--void:#090a10;--void2:#0c0e16;--panel:#111422;--panel2:#161a2b;
+    --line:#2b3350;--ink:#f3ecdd;--dim:#9aa3bd;--dimmer:#636c89;--ember:#ff8a3d;--ember-hot:#ffd27a;--teal:#3ddc97;--crimson:#e4453f}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--void);color:var(--ink);font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  body{padding:0 clamp(14px,3vw,36px) 64px}
+  header.top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;padding:22px 0 8px}
+  .mark{font-family:"Space Grotesk";font-weight:700;letter-spacing:.12em;color:var(--ember);font-size:15px}
+  .sub{color:var(--dimmer);font-family:"IBM Plex Mono";font-size:12px}
+  h1{font-family:"Space Grotesk";font-weight:600;letter-spacing:-.03em;font-size:clamp(26px,4vw,40px);line-height:1.05;margin:.2em 0 .35em;max-width:18ch}
+  h2{font-family:"Space Grotesk";font-weight:600;letter-spacing:-.02em;font-size:clamp(20px,2.4vw,26px);margin:.2em 0 .4em}
+  p{color:var(--dim);line-height:1.55;max-width:68ch}
+  p b,li b{color:var(--ink);font-weight:600}
+  .em{color:var(--ember-hot);font-weight:600}
+  .tl{color:var(--teal);font-weight:600}
+  .lab{font-family:"IBM Plex Mono";font-size:11px;letter-spacing:.14em;color:var(--ember);margin-bottom:6px}
+  .grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(280px,.9fr);gap:22px;align-items:start}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}}
+  .card{border:1px solid var(--line);border-radius:14px;background:radial-gradient(140% 80% at 50% -20%,#1a2036,var(--void2));padding:16px 16px 18px}
+  label.f{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--dim);margin:0 0 12px}
+  input,select,textarea{font:inherit;color:var(--ink);background:#0c0f1a;border:1px solid var(--line);border-radius:8px;padding:9px 10px}
+  textarea{min-height:72px;resize:vertical}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .row .f{flex:1;min-width:140px}
+  button.btn{all:unset;cursor:pointer;font-family:"IBM Plex Mono";font-size:13px;color:#160b02;background:var(--ember);border-radius:8px;padding:10px 14px}
+  button.btn:hover{background:var(--ember-hot)}
+  button.btn:disabled{opacity:.45;cursor:wait}
+  button.ghost{all:unset;cursor:pointer;font-family:"IBM Plex Mono";font-size:12.5px;color:var(--dim);border:1px solid var(--line);border-radius:8px;padding:9px 12px}
+  button.ghost.on,button.mode.on{color:#160b02;background:var(--ember);border-color:var(--ember)}
+  .modes{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 14px}
+  button.mode{all:unset;cursor:pointer;border:1px solid var(--line);border-radius:10px;padding:12px 14px;max-width:320px}
+  button.mode strong{display:block;font-family:"Space Grotesk";color:var(--ink);margin-bottom:4px}
+  button.mode span{color:var(--dim);font-size:13px;line-height:1.4}
+  .banner{border-radius:8px;padding:10px 12px;margin:8px 0;font-size:14px}
+  .banner.bad{background:#2a1214;color:#ffd0cc;border:1px solid #6a3034}
+  .banner.ok{background:#10241c;color:#d7ffe9;border:1px solid #1d4638}
+  .why{border-left:2px solid var(--ember);padding:2px 0 2px 12px;margin:10px 0 0}
+  .why h3{margin:0 0 4px;font-size:14px;font-family:"Space Grotesk"}
+  ol.phys{margin:8px 0 0;padding-left:18px;color:var(--dim)}
+  ol.phys li{margin:6px 0}
+  pre.log{font-family:"IBM Plex Mono";font-size:12px;line-height:1.45;white-space:pre-wrap;background:#07080e;border:1px solid #1c2236;border-radius:10px;padding:12px;min-height:80px;max-height:320px;overflow:auto}
+  .note{color:var(--dimmer);font-size:12.5px;margin:4px 0 0}
+  .spec{display:grid;grid-template-columns:52px minmax(0,1fr);gap:4px 8px}
+  .freq,.time{position:relative;font-family:"IBM Plex Mono";font-size:10px;color:var(--dimmer)}
+  .freq span,.time span{position:absolute;transform:translateY(-50%)}
+  .time{grid-column:2;height:16px}
+  .time span{transform:translateX(-50%)}
+  .stage{position:relative;background:#07080e;border:1px solid var(--line);border-radius:8px;touch-action:none;min-height:180px}
+  .stage img{display:block;width:100%;height:auto;pointer-events:none}
+  .boxes{position:absolute;inset:0}
+  .box{position:absolute;border:1.5px dashed var(--ember);background:#ff8a3d22}
+  .readout{font-family:"IBM Plex Mono";font-size:12px;color:var(--ember-hot)}
+  .results img,.heat{max-width:100%;border-radius:8px;border:1px solid var(--line)}
+  svg.map{width:100%;height:auto;background:#07080e;border:1px solid var(--line);border-radius:8px}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #1c2236;font-variant-numeric:tabular-nums}
+  th{color:var(--dimmer);font-weight:500;font-size:11px;letter-spacing:.06em}
+  .report{white-space:pre-wrap;font-family:"IBM Plex Mono";font-size:12px;line-height:1.45;color:var(--dim)}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+<header class="top">
+  <span class="mark">RUN THE TOOL</span>
+  <span class="sub">the same physics as the pictures, on the studio machine</span>
+</header>
+<h1>Stand on the map and ask what you would have heard.</h1>
+<p>You cannot honestly run this backwards, from a wiggle in pitch to a map pin, in one formula. A small error in the wiggle becomes a large error on the ground. The package does the forward problem instead. It puts a pretend microphone on each spot, plays every flight past that spot, and keeps the spot whose pretend recording matches yours.</p>
+
+<section class="card" id="connect">
+  <div class="lab">BEFORE ANY SEARCH</div>
+  <h2>Point this page at the studio.</h2>
+  <p>This page is the window. The arithmetic stays in the dopgeo package, on a machine you reach in a browser. Vercel only serves these pages. A serverless function cannot hold the hear table, ffmpeg, or a terrain file, so the search is not computed here. A database is not in the path either. The audit log is written on the studio machine, next to the job, and it stays there.</p>
+  <div class="why">
+    <h3>Why a token</h3>
+    <p>The page can be on the public web. The search should not be. The studio refuses every run until the shared token matches. A real recording also needs a purpose sentence, which is stored with your name, the time, a hash of the file, and the one-line result.</p>
+  </div>
+  <label class="f">Studio address
+    <input id="api" placeholder="https://the-studio-address" autocomplete="off">
+  </label>
+  <p class="note" id="mix"></p>
+  <div class="row">
+    <label class="f">Your name<input id="user" autocomplete="username" maxlength="80"></label>
+    <label class="f">Shared token<input id="token" type="password" autocomplete="current-password"></label>
+  </div>
+  <button class="btn" id="connectBtn" type="button">Connect</button>
+  <p class="note">If this page is https and the studio address is http, the browser will block the call. Use the studio’s https address.</p>
+  <div id="connectMsg"></div>
+</section>
+
+<section id="after" class="hidden">
+  <div class="modes">
+    <button class="mode" id="pickDemo" type="button"><strong>Rehearsal</strong><span>A fake landscape and fake flights. No file of yours. This is the path that should land on the hidden recorder.</span></button>
+    <button class="mode" id="pickReal" type="button"><strong>A real recording</strong><span>Your file, your boxes, that day’s tracks, and the ground. The page walks the physics one step at a time.</span></button>
+  </div>
+
+  <section id="demoPane" class="hidden">
+    <div class="grid">
+      <div>
+        <div class="lab">REHEARSAL · WHAT IS ABOUT TO HAPPEN</div>
+        <h2>Same formulas on both sides of the problem.</h2>
+        <ol class="phys">
+          <li><b>A hidden recorder</b> is placed on a rolling fake hillside. Two propeller flights pass it, about 15 minutes apart. The audio is built with the package’s own sound-speed, 343 m/s, about 20 °C.</li>
+          <li><b>The fit</b> reads each slide. How far the pitch falls is mostly speed. How sharply it bends is mostly the closest distance. The moment the pitch crosses the engine’s own note is when the sound of the closest point arrives, not when the aircraft was there.</li>
+          <li><b>The funnel</b> throws away spots that could not have heard those two passes that far apart, at those speeds, at those distances. Then it throws away spots that should have heard some other aircraft in the quiet gap and did not. Silence is evidence.</li>
+          <li><b>The score</b> is not another filter. For each survivor it lays the real curved flight path onto the spectrogram and adds up the brightness under that curve. The hotter spot wins. On this rehearsal the winner should sit on the hidden recorder, <span class="tl">0 m</span> off. That checks the wiring. Wind, a wrong temperature, and a bad clock are absent here, so 0 m is not a field accuracy number.</li>
+        </ol>
+        <p>The one-curve cross-check at the end uses only the first slide plus the known clock. It is weaker, and it usually misses by a few hundred meters. Two slides plus the gap are what pin the spot.</p>
+        <button class="btn" id="runDemo" type="button">Run the rehearsal</button>
+        <p class="note" id="demoBeat"></p>
+      </div>
+      <div class="card">
+        <div class="lab">LIVE STAGES</div>
+        <pre class="log" id="demoLog"></pre>
+      </div>
+    </div>
+    <div id="demoOut"></div>
+  </section>
+
+  <section id="realPane" class="hidden">
+    <div class="lab">A REAL RECORDING · FIVE STEPS</div>
+    <h2 id="realTitle">1 · Say why, then show the sound.</h2>
+    <div class="grid">
+      <div id="realTeach"></div>
+      <div class="card" id="realWork"></div>
+    </div>
+    <p class="note" id="realBeat"></p>
+    <pre class="log hidden" id="realLog"></pre>
+    <div id="realOut"></div>
+  </section>
+</section>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const state = { api:"", user:"", token:"", job:null, extent:null, duration:0, boxes:[], mode:"" };
+
+function msg(el, text, ok){
+  el.innerHTML = text ? `<div class="banner ${ok?"ok":"bad"}"></div>` : "";
+  if(text) el.firstElementChild.textContent = text;
+}
+function apiBase(){ return state.api.replace(/\/+$/, ""); }
+function headers(json){
+  const h = { Authorization:"Bearer "+state.token, "X-Operator": state.user };
+  if(json) h["Content-Type"] = "application/json";
+  return h;
+}
+async function readErr(res){
+  const text = await res.text();
+  try{ const body = JSON.parse(text); if(typeof body.detail==="string") return body.detail; }catch(e){}
+  return text || res.statusText || "The studio returned an error.";
+}
+function explain(line){
+  const s = line.trim();
+  if(s.startsWith("[0]")) return "Flights in the fake day. Jets are counted and then left in. The quiet-gap test needs them.";
+  if(s.includes("hear table: working") || s.startsWith("[1]")) return "Every grid point pretends to hold a microphone. The table stores when each flight would have been heard there, after the travel time of the sound. Stage 1.";
+  if(s.startsWith("[2]")) return "The fit on one slide. v is speed, from how deep the pitch falls. d is the closest slant distance, from how sharp the bend is. f0 is the engine’s own note. tc is when the closest-point sound arrives. RMS is how far the curve missed the bright ridge, in hertz.";
+  if(s.includes("measured gap")) return "The gap between the two arrivals is the clock the pair search trusts. It does not need the recording’s start time. The rehearsal also prints the true gap, so you can see the fit’s error.";
+  if(s.startsWith("[3]")) return "The funnel. Time gap, then speed, then closest distance, then silence. Each question is cheap and throws most of the map away before the slow score.";
+  if(s.includes("surviving flight")) return "How many flight pairings are still alive. The score will test places along those pairings, not the whole map.";
+  if(s.startsWith("[5]")) return "Locked score. Event 1 may slide a few seconds and a few percent in pitch. Event 2 is locked to event 1 by the shape of the two real flight paths. If the second curve lands in the wrong place, that spot loses. There is no stage 4. The physics sits inside this score. The package numbers it that way.";
+  if(s.startsWith("[6]")) return "One slide plus a known clock. Useful as a cross-check. A single pass looks the same from either side of the track, so a mirror often remains.";
+  if(s.startsWith("Top pin") || s.includes("0 m") || s.startsWith("Top ")) return "The pin. On the rehearsal, 0 m means the winner is the hidden recorder. On a real day, read the gap between first and second place before you trust it.";
+  return "";
+}
+function paintLog(el, lines){
+  el.textContent = "";
+  lines.forEach((line)=>{
+    el.appendChild(document.createTextNode(line+"\n"));
+    const why = explain(line);
+    if(why){
+      const n = document.createElement("span");
+      n.style.color = "#636c89";
+      n.textContent = "  why: "+why+"\n";
+      el.appendChild(n);
+    }
+  });
+  el.scrollTop = el.scrollHeight;
+}
+async function stream(path, body, onEvent){
+  const res = await fetch(apiBase()+path, { method:"POST", headers: headers(!!body), body: body?JSON.stringify(body):undefined });
+  const ctype = res.headers.get("content-type")||"";
+  if(!res.ok && !ctype.includes("ndjson")) throw new Error(await readErr(res));
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf="", saw=false, err=null;
+  while(true){
+    const step = await reader.read();
+    if(step.done) break;
+    buf += dec.decode(step.value, {stream:true});
+    let cut;
+    while((cut=buf.indexOf("\n"))>=0){
+      const line=buf.slice(0,cut).trim(); buf=buf.slice(cut+1);
+      if(!line) continue;
+      const ev=JSON.parse(line);
+      if(ev.type==="error") err=ev.message||"The run failed.";
+      if(ev.type==="result") saw=true;
+      onEvent(ev);
+    }
+  }
+  if(err && !saw) throw new Error(err);
+  if(!saw && !err) throw new Error("The run ended before it produced a result.");
+}
+function drawMap(map){
+  if(!map || !map.pins || !map.pins.length) return "";
+  const pts = [];
+  map.pins.forEach(p=>pts.push([p.x,p.y]));
+  (map.tracks||[]).forEach(t=>(t.pts||[]).forEach(p=>pts.push(p)));
+  if(map.truth) pts.push([map.truth.x, map.truth.y]);
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  pts.forEach(([x,y])=>{ minX=Math.min(minX,x); maxX=Math.max(maxX,x); minY=Math.min(minY,y); maxY=Math.max(maxY,y); });
+  const pad=Math.max(400, (maxX-minX)*0.08, (maxY-minY)*0.08);
+  minX-=pad; maxX+=pad; minY-=pad; maxY+=pad;
+  const W=640,H=420;
+  const X=x=> (x-minX)/(maxX-minX)*W;
+  const Y=y=> H-(y-minY)/(maxY-minY)*H;
+  let svg=`<svg class="map" viewBox="0 0 ${W} ${H}" role="img" aria-label="Ranked pins in local meters">`;
+  (map.tracks||[]).forEach(t=>{
+    const d=(t.pts||[]).map((p,i)=> (i?"L":"M")+X(p[0]).toFixed(1)+" "+Y(p[1]).toFixed(1)).join(" ");
+    svg+=`<path d="${d}" fill="none" stroke="#9aa3bd" stroke-width="1.2"/>`;
+  });
+  if(map.truth){
+    const x=X(map.truth.x), y=Y(map.truth.y);
+    svg+=`<path d="M${x-8} ${y} L${x+8} ${y} M${x} ${y-8} L${x} ${y+8}" stroke="#3ddc97" stroke-width="1.6"/>`;
+  }
+  map.pins.slice(0,5).forEach(p=>{
+    const x=X(p.x), y=Y(p.y);
+    svg+=`<circle cx="${x}" cy="${y}" r="${p.rank===1?6:4}" fill="${p.rank===1?"#ff8a3d":"#ffd27a"}"/>`;
+    svg+=`<text x="${x+8}" y="${y-6}" fill="#f3ecdd" font-size="11" font-family="IBM Plex Mono">${p.rank}</text>`;
+  });
+  svg+="</svg>";
+  return svg;
+}
+function resultView(ev){
+  const heat = ev.heatmap_png_b64 ? `<img class="heat" alt="Score heat map" src="data:image/png;base64,${ev.heatmap_png_b64}">` : "";
+  const rows = (ev.rows||[]).slice(0,6);
+  let table="";
+  if(rows.length){
+    table="<table><thead><tr><th>#</th><th>What</th><th>lat</th><th>lon</th><th>score</th><th>miss m</th></tr></thead><tbody>";
+    rows.forEach(r=>{
+      table+=`<tr><td>${r.rank??""}</td><td>${r.label||""}</td><td>${r.lat??""}</td><td>${r.lon??""}</td><td>${r.score??""}</td><td>${r.err_m??""}</td></tr>`;
+    });
+    table+="</tbody></table>";
+  }
+  return `<div class="card" style="margin-top:16px">
+    <div class="lab">WHAT THE PACKAGE KEPT</div>
+    <h2>${ev.headline||"Finished"}</h2>
+    <p>${ev.err_m===0?"The pin is on the hidden recorder. The rehearsal audio was built with the same physics that scored it, at 343 m/s. A real day still has wind, temperature, the geoid, and the clock.":""}</p>
+    <div class="grid"><div>${drawMap(ev.map)}${table}</div><div>${heat}</div></div>
+    <details open style="margin-top:12px"><summary>Full report</summary><pre class="report"></pre></details>
+    <p><button class="ghost" id="dl" type="button">Download the report</button></p>
+  </div>`;
+}
+function mountResult(host, ev){
+  host.innerHTML = resultView(ev);
+  const pre = host.querySelector(".report");
+  if(pre) pre.textContent = ev.report||"";
+  const dl = host.querySelector("#dl");
+  if(dl) dl.onclick = ()=>{
+    const blob = new Blob([ev.report||""], {type:"text/plain"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="dopgeo-report.txt"; a.click();
+  };
+}
+
+$("connectBtn").onclick = async ()=>{
+  state.api = $("api").value.trim();
+  state.user = $("user").value.trim();
+  state.token = $("token").value;
+  msg($("connectMsg"), "");
+  if(!state.api || !state.user || !state.token){ msg($("connectMsg"), "Fill in the studio address, your name, and the token."); return; }
+  if(location.protocol==="https:" && state.api.startsWith("http:")){
+    msg($("connectMsg"), "This page is https and the studio address is http. The browser will block that. Use the studio’s https address.");
+    return;
+  }
+  $("connectBtn").disabled=true;
+  try{
+    const res = await fetch(apiBase()+"/auth/login", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({user:state.user, token:state.token})});
+    if(!res.ok) throw new Error(await readErr(res));
+    const ready = await fetch(apiBase()+"/ready", {headers:headers(false)});
+    if(!ready.ok) throw new Error(await readErr(ready));
+    const body = await ready.json();
+    sessionStorage.setItem("dopgeo.api", state.api);
+    sessionStorage.setItem("dopgeo.user", state.user);
+    sessionStorage.setItem("dopgeo.token", state.token);
+    msg($("connectMsg"), "Connected. ffmpeg is "+(body.ffmpeg?"on the studio":"missing")+". dopgeo "+(body.dopgeo||"")+".", true);
+    $("after").classList.remove("hidden");
+  }catch(err){ msg($("connectMsg"), err.message); }
+  finally{ $("connectBtn").disabled=false; }
+};
+
+function pick(mode){
+  state.mode=mode;
+  $("pickDemo").classList.toggle("on", mode==="demo");
+  $("pickReal").classList.toggle("on", mode==="real");
+  $("demoPane").classList.toggle("hidden", mode!=="demo");
+  $("realPane").classList.toggle("hidden", mode!=="real");
+  if(mode==="real") showReal(1);
+}
+$("pickDemo").onclick=()=>pick("demo");
+$("pickReal").onclick=()=>pick("real");
+
+const demoLines=[];
+$("runDemo").onclick=async ()=>{
+  $("runDemo").disabled=true; demoLines.length=0; $("demoOut").innerHTML=""; $("demoBeat").textContent="Working. The hear table is the long part.";
+  try{
+    await stream("/demo/run", null, (ev)=>{
+      if(ev.type==="heartbeat") $("demoBeat").textContent=ev.text||"";
+      if(ev.type==="stage"||ev.type==="error"){ demoLines.push(ev.text||ev.message||""); paintLog($("demoLog"), demoLines); $("demoBeat").textContent=""; }
+      if(ev.type==="result"){ $("demoBeat").textContent="Finished in "+(ev.elapsed_s??"?")+" s."; mountResult($("demoOut"), ev); }
+    });
+  }catch(err){ $("demoBeat").textContent=""; demoLines.push(err.message); paintLog($("demoLog"), demoLines); }
+  finally{ $("runDemo").disabled=false; }
+};
+
+const teach = {
+  1:`<div class="why"><h3>What you are handing the fit</h3>
+    <p>A propeller holds a steady note. As it passes, that note slides down. The spectrogram is the recording pulled apart by pitch and time. Each frequency row is compared with its own median, so a steady hum fades and the slide stays bright.</p>
+    <p>Write a purpose in a real sentence. The studio stores it in the audit log and will not search a real file without it.</p></div>`,
+  2:`<div class="why"><h3>What a box measures</h3>
+    <ol class="phys">
+      <li><b>Depth of the drop</b> is mostly speed. The high note and the low note sit on either side of the pass. Their ratio is about (c+v)/(c−v).</li>
+      <li><b>Steepness of the bend</b> is mostly the closest distance. A nearby pass falls through its pitch quickly. A distant pass falls slowly.</li>
+      <li><b>The middle of the slide</b>, where the heard pitch equals the engine’s own note f0, is the arrival of the closest-point sound. The aircraft was at that point earlier, by distance ÷ speed of sound. That delay is the retarded time. Using the aircraft’s speed at the moment you hear it is the wrong model. The package keeps that wrong model only as a training drill.</li>
+    </ol>
+    <p>Two boxes use the gap between them as the clock. One box needs the recording’s start time to be right, and a mirror of the track often survives. Drag so the box holds the whole slide. High pitch is the top of the picture.</p></div>`,
+  3:`<div class="why"><h3>Air, clock, and the ground</h3>
+    <ol class="phys">
+      <li><b>Temperature</b> sets the speed of sound in the hear table and the score: c = 331.3 + 0.606 × °C. The curve fit itself always uses 343 m/s. That split is what the package does. A wrong temperature still moves the pin. Wind is not in the model at all.</li>
+      <li><b>The clock</b> matters most for a single slide. The fit only trusts the closest-arrival time to about ±5 seconds, and the one-curve search adds about ±3 seconds more. A late clock smears the pin along the track. Two slides mostly ignore the start time and use the gap.</li>
+      <li><b>ADS-B</b> is the set of paths we are allowed to try. The page does not download it. You give a path on the studio machine: a CSV, or a readsb trace. Geometric altitude is height above the ellipsoid. A terrain file is usually height above the geoid. In the continental US that offset is often near −30 m.</li>
+      <li><b>The search box</b> is one tile. About 50 km across (25 km half-width) at 200 m is the size the package suggests. A state is many tiles. This button runs one tile.</li>
+    </ol></div>`,
+  4:`<div class="why"><h3>How to read the answer</h3>
+    <p>The heat map is the score of the winning flight pair, not a new picture drawn for the website. Brighter means the predicted curves sat on the bright ridges. Read the margin between first and second. A small margin means the pin is not unique. A lone pass has a mirror on the other side of the track. The second aircraft, and the silence between them, is what breaks it.</p>
+    <p>Nothing here is a CEP. The package does not publish one. The 0 m rehearsal is a wiring check.</p></div>`
+};
+
+function showReal(step){
+  state.realStep=step;
+  const titles={1:"1 · Say why, then show the sound.",2:"2 · Draw a box around each slide.",3:"3 · Set the air, the clock, and the map.",4:"4 · Read the pin."};
+  $("realTitle").textContent=titles[step]||"";
+  $("realTeach").innerHTML=teach[step]||"";
+  const work=$("realWork");
+  if(step===1){
+    work.innerHTML=`<label class="f">Purpose<textarea id="purpose" maxlength="500" placeholder="Case 14, confirm the recorder site for the Tuesday flight"></textarea></label>
+      <label class="f">Recording<input id="file" type="file" accept=".wav,.flac,.mp3,.m4a,.ogg,.mov,.mp4,.mkv,.webm,.m4v,audio/*,video/*"></label>
+      <button class="btn" id="read" type="button">Read the recording</button><div id="readMsg"></div>`;
+    $("purpose").value=state.purpose||"";
+    $("read").onclick=readFile;
+  } else if(step===2){
+    work.innerHTML=`<div class="spec"><div class="freq" id="faxis"></div><div class="stage" id="stage" tabindex="0"><img id="simg" alt="Whitened spectrogram"><div class="boxes" id="layer"></div></div><div class="time" id="taxis"></div></div>
+      <p class="readout" id="readout">Drag a box around one slide. High pitch is up.</p>
+      <div id="blist"></div>
+      <div class="row"><button class="ghost" id="clear" type="button">Clear boxes</button><button class="btn" id="next" type="button">Use these boxes</button></div>`;
+    $("simg").src=state.specUrl;
+    mountBoxes();
+    $("next").onclick=()=>{ if(!state.boxes.length){ $("readout").textContent="Draw at least one box around a whole slide."; return;} showReal(3); };
+  } else if(step===3){
+    work.innerHTML=`<label class="f">Recording start, UTC<input id="started" placeholder="2026-11-11 15:04"></label>
+      <div class="row"><label class="f">Surface °C<input id="temp" type="number" value="15" step="0.1"></label>
+      <label class="f">Half-width km<input id="half" type="number" value="25" min="0.2" max="100"></label>
+      <label class="f">Step m<input id="step" type="number" value="200" min="50" max="2000"></label></div>
+      <div class="row"><label class="f">Center latitude<input id="lat" type="number" step="0.00001"></label>
+      <label class="f">Center longitude<input id="lon" type="number" step="0.00001"></label></div>
+      <label class="f">ADS-B path on the studio<input id="adsb" placeholder="day.csv or a folder of traces"></label>
+      <div class="row"><label class="f">Kind<select id="kind"><option value="auto">Auto</option><option value="csv">CSV</option><option value="readsb">readsb</option></select></label>
+      <label class="f">Altitude column<input id="alt" value="alt_m_msl"></label>
+      <label class="f">Geoid m<input id="geoid" type="number" value="0"></label></div>
+      <label class="f"><span><input id="geom" type="checkbox" checked> Use geometric altitude when the trace has it</span></label>
+      <label class="f">Terrain<select id="demMode"><option value="flat">Flat elevation</option><option value="tiff">GeoTIFF, longitude/latitude</option></select></label>
+      <div class="row"><label class="f">Flat elevation m<input id="flat" type="number" value="0"></label>
+      <label class="f">GeoTIFF path<input id="dem" placeholder="terrain.tif"></label></div>
+      <p class="note" id="size"></p>
+      <button class="btn" id="locate" type="button">Run this tile</button><div id="locMsg"></div>`;
+    const hint=()=>{ const half=+ $("half").value*1000, step=+ $("step").value; if(!(half>0)||!(step>0)) return;
+      const n=(Math.round(2*half/step)+1)**2;
+      $("size").textContent = n>90000 ? "About "+n.toLocaleString()+" points. The studio stops at 90,000. Use a 25 km half-width at 200 m." : "About "+n.toLocaleString()+" points. A 25 km half-width at 200 m is about 63,000."; };
+    $("half").oninput=hint; $("step").oninput=hint; hint();
+    $("locate").onclick=runLocate;
+  } else {
+    work.innerHTML=`<p>The log and the pin are below. A second run starts from step 1 if you read another file.</p>
+      <button class="ghost" type="button" id="again">Start another recording</button>`;
+    $("again").onclick=()=>showReal(1);
+  }
+}
+
+async function readFile(){
+  state.purpose=$("purpose").value.trim();
+  const file=$("file").files&&$("file").files[0];
+  if(state.purpose.length<12){ msg($("readMsg"), "Write the purpose in a short sentence. It is stored in the audit log."); return; }
+  if(!file){ msg($("readMsg"), "Choose a recording."); return; }
+  const form=new FormData(); form.append("purpose", state.purpose); form.append("file", file);
+  $("read").disabled=true;
+  try{
+    const res=await fetch(apiBase()+"/media/preview", {method:"POST", headers:headers(false), body:form});
+    if(!res.ok) throw new Error(await readErr(res));
+    const body=await res.json();
+    state.job=body.job_id; state.extent=body.extent; state.duration=body.duration_s; state.boxes=[];
+    state.specUrl="data:image/png;base64,"+body.spectrogram_png_b64;
+    showReal(2);
+  }catch(err){ msg($("readMsg"), err.message); }
+  finally{ const b=$("read"); if(b) b.disabled=false; }
+}
+
+function mountBoxes(){
+  const stage=$("stage"), layer=$("layer"), extent=state.extent;
+  if(!extent) return;
+  const fAxis=$("faxis"), tAxis=$("taxis");
+  fAxis.style.height=stage.getBoundingClientRect().height+"px";
+  function ticks(){
+    fAxis.replaceChildren(); tAxis.replaceChildren();
+    const h=stage.clientHeight||300; fAxis.style.height=h+"px";
+    for(let i=0;i<=4;i++){
+      const frac=i/4;
+      const fs=document.createElement("span"); fs.style.top=(frac*100)+"%";
+      fs.textContent=Math.round(extent.f1-frac*(extent.f1-extent.f0))+" Hz"; fAxis.appendChild(fs);
+      const ts=document.createElement("span"); ts.style.left=(frac*100)+"%";
+      ts.textContent=Math.round(extent.t0+frac*(extent.t1-extent.t0))+" s"; tAxis.appendChild(ts);
+    }
+  }
+  function frac(e){ const r=stage.getBoundingClientRect();
+    return {x:Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)), y:Math.min(1,Math.max(0,(e.clientY-r.top)/r.height))}; }
+  function tf(fr){ return { t:extent.t0+fr.x*(extent.t1-extent.t0), f:extent.f1-fr.y*(extent.f1-extent.f0) }; }
+  let drag=null;
+  function render(){
+    layer.replaceChildren();
+    state.boxes.forEach((b,i)=>{
+      const el=document.createElement("div"); el.className="box";
+      const x0=(b.t_lo-extent.t0)/(extent.t1-extent.t0)*100;
+      const x1=(b.t_hi-extent.t0)/(extent.t1-extent.t0)*100;
+      const y0=(extent.f1-b.f_hi)/(extent.f1-extent.f0)*100;
+      const y1=(extent.f1-b.f_lo)/(extent.f1-extent.f0)*100;
+      el.style.left=x0+"%"; el.style.width=(x1-x0)+"%"; el.style.top=y0+"%"; el.style.height=(y1-y0)+"%";
+      el.title="Box "+(i+1); layer.appendChild(el);
+    });
+    const list=$("blist"); list.replaceChildren();
+    state.boxes.forEach((b,i)=>{
+      const p=document.createElement("p"); p.className="readout";
+      const small = (b.t_hi-b.t_lo)<3 || (b.f_hi-b.f_lo)<5;
+      p.textContent=`Box ${i+1}: t ${b.t_lo.toFixed(1)}–${b.t_hi.toFixed(1)} s, f ${b.f_lo.toFixed(1)}–${b.f_hi.toFixed(1)} Hz${small?" — stretch it across the whole slide (at least 3 s and 5 Hz)":""}`;
+      list.appendChild(p);
+    });
+  }
+  stage.onpointerdown=(e)=>{
+    if(state.boxes.length>=6) return;
+    const a=frac(e); drag={a,b:a}; stage.setPointerCapture(e.pointerId);
+  };
+  stage.onpointermove=(e)=>{
+    const fr=frac(e); const p=tf(fr);
+    $("readout").textContent=`t ${p.t.toFixed(1)} s · f ${p.f.toFixed(1)} Hz`;
+    if(!drag) return; drag.b=fr;
+    const A=tf(drag.a), B=tf(drag.b);
+    const draft={t_lo:Math.min(A.t,B.t), t_hi:Math.max(A.t,B.t), f_lo:Math.min(A.f,B.f), f_hi:Math.max(A.f,B.f)};
+    state.boxes=state.boxes.filter(b=>!b.draft).concat([Object.assign({draft:true}, draft)]);
+    render();
+  };
+  stage.onpointerup=()=>{
+    if(!drag) return; drag=null;
+    state.boxes=state.boxes.map(b=>{ const c=Object.assign({}, b); delete c.draft; return c; })
+      .filter(b=>(b.t_hi-b.t_lo)>=0.15 && (b.f_hi-b.f_lo)>=0.5);
+    render();
+  };
+  $("clear").onclick=()=>{ state.boxes=[]; render(); };
+  $("simg").onload=ticks; ticks(); render();
+}
+
+const realLines=[];
+async function runLocate(){
+  const payload={
+    job_id: state.job, purpose: state.purpose, brackets: state.boxes.filter(b=>!b.draft).map(({t_lo,t_hi,f_lo,f_hi})=>({t_lo,t_hi,f_lo,f_hi})),
+    started_at: $("started").value.trim(), temp_c: $("temp").value, lat: $("lat").value, lon: $("lon").value,
+    half_width_km: $("half").value, step_m: $("step").value, adsb_path: $("adsb").value.trim(), adsb_kind: $("kind").value,
+    alt_col: $("alt").value.trim(), geoid_m: $("geoid").value, use_geometric: $("geom").checked, flat_elev_m: $("flat").value
+  };
+  if($("demMode").value==="tiff") payload.dem_path=$("dem").value.trim();
+  realLines.length=0; $("realLog").classList.remove("hidden"); $("realOut").innerHTML=""; $("locate").disabled=true;
+  try{
+    await stream("/locate", payload, (ev)=>{
+      if(ev.type==="heartbeat") $("realBeat").textContent=ev.text||"";
+      if(ev.type==="stage"||ev.type==="error"){ realLines.push(ev.text||ev.message||""); paintLog($("realLog"), realLines); $("realBeat").textContent=""; }
+      if(ev.type==="result"){ showReal(4); mountResult($("realOut"), ev); $("realBeat").textContent="Finished in "+(ev.elapsed_s??"?")+" s."; }
+    });
+  }catch(err){ msg($("locMsg"), err.message); }
+  finally{ const b=$("locate"); if(b) b.disabled=false; }
+}
+
+const savedApi=sessionStorage.getItem("dopgeo.api");
+const savedUser=sessionStorage.getItem("dopgeo.user");
+if(savedUser) $("user").value=savedUser;
+if(savedApi) $("api").value=savedApi;
+else if(location.protocol!=="https:" || !location.hostname.endsWith("vercel.app")) $("api").value=location.origin;
+$("token").value=sessionStorage.getItem("dopgeo.token")||"";
+</script>
+</body>
+</html>
