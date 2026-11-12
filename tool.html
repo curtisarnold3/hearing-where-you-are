@@ -324,7 +324,8 @@ $("runDemo").onclick=async ()=>{
 const teach = {
   1:`<div class="why"><h3>What you are handing the fit</h3>
     <p>A propeller holds a steady note. As it passes, that note slides down. The spectrogram is the recording pulled apart by pitch and time. Each frequency row is compared with its own median, so a steady hum fades and the slide stays bright.</p>
-    <p>Write a purpose in a real sentence. The studio stores it in the audit log and will not search a real file without it.</p></div>`,
+    <p>Write a purpose in a real sentence. The studio stores it in the audit log and will not search a real file without it.</p>
+    <p><b>How long the sound must be.</b> At least 5 seconds, and no more than 2 hours. Under 5 seconds is refused: the pitch has to have time to fall as the aircraft passes, and a short blip is not a pass. A useful clip is the minute or two around the flyover, not a whole day. Video is accepted when it has an audio track. The box you draw later has its own rule: it must cover at least 3 seconds of that slide.</p></div>`,
   2:`<div class="why"><h3>What a box measures</h3>
     <ol class="phys">
       <li><b>Depth of the drop</b> is mostly speed. The high note and the low note sit on either side of the pass. Their ratio is about (c+v)/(c−v).</li>
@@ -353,6 +354,7 @@ function showReal(step){
   if(step===1){
     work.innerHTML=`<label class="f">Purpose<textarea id="purpose" maxlength="500" placeholder="Case 14, confirm the recorder site for the Tuesday flight"></textarea></label>
       <label class="f">Recording<input id="file" type="file" accept=".wav,.flac,.mp3,.m4a,.ogg,.mov,.mp4,.mkv,.webm,.m4v,audio/*,video/*"></label>
+      <p class="note">Length: 5 seconds minimum, 2 hours maximum. A flyover worth fitting is usually a minute or two around the pass.</p>
       <button class="btn" id="read" type="button">Read the recording</button><div id="readMsg"></div>`;
     $("purpose").value=state.purpose||"";
     $("read").onclick=readFile;
