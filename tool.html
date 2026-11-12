@@ -92,7 +92,7 @@
     <label class="f">Shared token<input id="token" type="password" autocomplete="current-password"></label>
   </div>
   <button class="btn" id="connectBtn" type="button">Connect</button>
-  <p class="note">If this page is https and the studio address is http, the browser will block the call. Use the studio’s https address.</p>
+  <p class="note">127.0.0.1 means the computer you are sitting at. This Vercel page cannot see a studio that is running somewhere else. Leave this field blank until the studio has an https address your browser can open.</p>
   <div id="connectMsg"></div>
 </section>
 
@@ -275,8 +275,16 @@ $("connectBtn").onclick = async ()=>{
   state.token = $("token").value;
   msg($("connectMsg"), "");
   if(!state.api || !state.user || !state.token){ msg($("connectMsg"), "Fill in the studio address, your name, and the token."); return; }
+  let host = "";
+  try { host = new URL(state.api).hostname; } catch (e) { host = ""; }
+  const local = host === "127.0.0.1" || host === "localhost" || host === "::1";
+  const here = location.hostname === "127.0.0.1" || location.hostname === "localhost";
+  if(local && !here){
+    msg($("connectMsg"), "127.0.0.1 is your own computer, and nothing there is answering. The studio started for this project is on another machine. This Vercel page cannot use 127.0.0.1.");
+    return;
+  }
   if(location.protocol==="https:" && state.api.startsWith("http:")){
-    msg($("connectMsg"), "This page is https and the studio address is http. The browser will block that. Use the studio’s https address.");
+    msg($("connectMsg"), "This page is https and that studio address is http. The browser will block the call. The studio needs an https address.");
     return;
   }
   $("connectBtn").disabled=true;
@@ -291,7 +299,12 @@ $("connectBtn").onclick = async ()=>{
     sessionStorage.setItem("dopgeo.token", state.token);
     msg($("connectMsg"), "Connected. ffmpeg is "+(body.ffmpeg?"on the studio":"missing")+". dopgeo "+(body.dopgeo||"")+".", true);
     $("after").classList.remove("hidden");
-  }catch(err){ msg($("connectMsg"), err.message); }
+  }catch(err){
+    const text = (err && err.message === "Failed to fetch")
+      ? "The browser could not open that address. Nothing answered, or the address is not https."
+      : err.message;
+    msg($("connectMsg"), text);
+  }
   finally{ $("connectBtn").disabled=false; }
 };
 
